@@ -25,15 +25,15 @@ vllm_key = next(line.partition("=")[2].strip() for line in cli["KEY_FILE"].read_
 
 
 from site_catalog import read_store
+from onec_live import configured_reader
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-catalogs = {}
-dates = {}
-keys = {}
 models = {"manager": "hardpro-manager", "buyer": "hardpro-shop"}
-data = json.loads((ROOT / "onec-pilot/full-catalog.json").read_text())
-catalogs["manager"] = Catalog(data)
-dates["manager"] = data["момент"]
+reader_config = os.environ.get("ONEC_READER_CONFIG")
+if not reader_config:
+    data = json.loads((ROOT / "onec-pilot/full-catalog.json").read_text())
+    archive = Catalog(data)
+    archive_date = data["момент"]
 keys = {role: os.environ[role.upper() + "_TOKEN"] for role in models}
 
 
@@ -66,10 +66,14 @@ def reply(role, turns):
         cat, stamp = read_store(parts[1], parts[2])
         turns = [q.partition("\n")[2] for q in turns if q.startswith(f"shop:{parts[1]}:")]
         prefix = f"По данным сайта на {stamp}."
+    elif reader_config:
+        reader = configured_reader(reader_config)
+        cat = reader.session()
+        return cat.answer(turns, lambda m: parse(m[0]["content"], m[1]["content"])).replace("\n", "  \n")
     else:
-        cat = copy.copy(catalogs[role])
+        cat = copy.copy(archive)
         cat.criteria = cat.criteria.copy()
-        prefix = f"По выгрузке на {dates[role]}."
+        prefix = f"По выгрузке на {archive_date}."
     for question in turns:
         answer = cat.reply(question, lambda m: parse(m[0]["content"], m[1]["content"]))
     if role == "buyer":
