@@ -65,10 +65,13 @@ printf '\n'
 Добавь в `~/.tmux.conf` и запусти `tmux`. Чтобы применить изменения в открытой сессии, выполни `tmux source-file ~/.tmux.conf`.
 
 ```tmux
+set -g mouse off
 set -g status 2
 set -g status-interval 2
 set -g 'status-format[1]' '#[align=left,fg=colour117,bold] #($HOME/.local/bin/hp-temps)'
 ```
+
+При подключении из Windows Terminal параметр `mouse off` оставляет выделение и правый клик самому терминалу. Для вставки текста из буфера Windows используй `Ctrl+Shift+V`. В уже открытой сессии достаточно выполнить `tmux set -g mouse off`. [Сочетания клавиш Windows Terminal](https://learn.microsoft.com/en-us/windows/terminal/customize-settings/actions#paste)
 
 Для автозапуска добавь в конец `~/.profile` следующий блок. Условие проверяет интерактивную оболочку и терминал. Скрипты, `scp` и команды вида `ssh сервер команда` смогут использовать обычный текстовый поток.
 
@@ -100,6 +103,35 @@ Host llm-lab
 `ssh llm-lab` откроет сервер. При `Permission denied (publickey)` выполни `ssh -G llm-lab` и проверь `identityfile`, затем `ssh -v llm-lab` покажет предлагаемый ключ. На сервере в `authorized_keys` должна быть соответствующая открытая часть. При первом соединении сверь отпечаток ключа **сервера** через доверенный канал.
 
 Перед отключением парольного входа оставь рабочее SSH-окно открытым, проверь ключ во втором окне и разреши в UFW входящий TCP-порт SSH со своей административной сети. Параметры OpenSSH для этой схемы — `PubkeyAuthentication yes`, `PasswordAuthentication no`, `KbdInteractiveAuthentication no`, `PermitRootLogin no`. Выполни `sudo sshd -t`, проверь эффективные настройки через `sudo sshd -T`, перезагрузи конфигурацию `sudo systemctl reload ssh` и повтори вход в новом окне. `sudo ufw status verbose` покажет действующие правила. [OpenSSH в Ubuntu](https://documentation.ubuntu.com/server/how-to/security/openssh-server/) · [UFW в Ubuntu](https://documentation.ubuntu.com/server/how-to/security/firewalls/)
+
+## Обновления безопасности Ubuntu
+
+На Ubuntu Server с `unattended-upgrades` сначала обнови индексы APT и проверь план установки. Источники обновлений и разрешение на автоматическую перезагрузку определяются настройками APT. Перед работой по SSH проверь, что автоматическая перезагрузка отключена. [Документация Ubuntu по unattended-upgrades](https://ubuntu.com/server/docs/how-to/software/automatic-updates/)
+
+```bash
+sudo apt-get --error-on=any update
+sudo unattended-upgrade -v --dry-run
+```
+
+После проверки запусти установку отдельной системной службой. Тогда разрыв SSH-соединения не прервёт обновление. По журналу можно проследить установку до завершения.
+
+```bash
+sudo systemd-run --unit=llm-security-update --no-block /usr/bin/unattended-upgrade -v
+journalctl -u llm-security-update -f
+```
+
+После завершения открой **новое** SSH-соединение с рабочей станции. Проверь результат установки и состояние оборудования.
+
+```bash
+dpkg --audit
+/usr/lib/update-notifier/apt-check 2>&1; echo
+nvidia-smi --query-gpu=name,pci.bus_id,memory.total,driver_version --format=csv
+findmnt --mountpoint /srv/models -o SOURCE,TARGET,FSTYPE,UUID
+findmnt --fstab --mountpoint /srv/models -o SOURCE,TARGET,FSTYPE
+if test -e /run/reboot-required; then cat /run/reboot-required /run/reboot-required.pkgs; fi
+```
+
+В выводе `apt-check` второе число показывает количество доступных обновлений безопасности. Сверь обе карты по адресам PCI и UUID смонтированной файловой системы с UUID в `fstab`. Если Ubuntu запросила перезагрузку, согласуй время остановки и повтори проверки после загрузки.
 
 ## vLLM на одной RTX 3090
 
