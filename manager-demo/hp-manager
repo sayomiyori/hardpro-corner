@@ -1,0 +1,104 @@
+#!/usr/bin/env python3
+"""Русскоязычная демонстрация помощника на фиксированном учебном снимке."""
+import json
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
+
+HERE = Path(__file__).resolve().parent
+ENDPOINT = "http://127.0.0.1:8000/v1/chat/completions"
+KEY_FILE = Path.home() / ".config/hardpro-vllm/api.env"
+RULES = """Ты помогаешь менеджеру магазина. Отвечай по-русски в 1–3 коротких предложениях.
+Все данные учебные. Отвечай на момент указанного тестового снимка. Для доступности используй только
+поле «свободно» у конкретного варианта на конкретном складе. Подтверждённый ноль означает, что там
+свободного товара нет. Если статус неизвестен или данные устарели, явно сообщи, что подтвердить
+наличие нельзя и нужна сверка. Каталог — частичная выборка. Если запрошенного товара в ней нет,
+напиши, что сведений о нём в учебном каталоге нет. Его фактическое наличие неизвестно. Только явное
+«свободно: 0» даёт основание говорить об отсутствии товара на складе. При нескольких возможных
+вариантах уточни размер или вес. Если указан вариант, сохраняй его вес, размер и цвет во всём ответе.
+Когда спрашивают, где ещё взять этот вариант, сравни его же на других складах. Другие варианты
+предлагай только по явной просьбе о замене. Не придумывай товары, цены или дату поставки. Не обещай резерв,
+списание или заказ: доступно только чтение. Если спрашивают о цене, указывай рубли. Не перечисляй
+служебные поля, если о них не спрашивают. Время замера уместно, если оно помогает ответить."""
+
+
+def snapshot():
+    data = json.loads((HERE / "catalog-demo.json").read_text(encoding="utf-8"))
+    as_of = datetime.fromisoformat(data["момент"])
+    data["охват каталога"] = "Учебная выборка. Наличие товаров за пределами выборки неизвестно."
+    for item in data["товары"]:
+        for warehouse in data["склады"]:
+            if warehouse not in item["склады"]:
+                item["склады"][warehouse] = {"статус": "нет данных об остатке; нужна сверка"}
+                continue
+            row = item["склады"][warehouse]
+            on_hand = row["физически"]
+            reserved = row["резерв"]
+            measured = datetime.fromisoformat(row["проверено"])
+            if not (0 <= reserved <= on_hand and measured <= as_of):
+                raise ValueError("Некорректная строка учебного остатка")
+            if as_of - measured > timedelta(minutes=5):
+                del row["физически"], row["резерв"]
+                row["статус"] = "устарело, доступность не подтверждена"
+            else:
+                row["свободно"] = on_hand - reserved
+    return data
+
+
+def ask(messages, api_key):
+    body = {
+        "model": "manager", "messages": messages, "temperature": 0,
+        "max_tokens": 300, "chat_template_kwargs": {"enable_thinking": False},
+    }
+    request = Request(ENDPOINT, data=json.dumps(body).encode(), headers={
+        "Content-Type": "application/json", "Authorization": "Bearer " + api_key,
+    })
+    with urlopen(request, timeout=90) as response:
+        choice = json.load(response)["choices"][0]
+    if choice["finish_reason"] != "stop" or not choice["message"]["content"]:
+        raise RuntimeError("Модель не завершила ответ. Попробуйте уточнить вопрос.")
+    return choice["message"]["content"].strip()
+
+
+def main():
+    settings = dict(line.split("=", 1) for line in KEY_FILE.read_text().splitlines()
+                    if line.startswith("VLLM_API_KEY="))
+    key = settings["VLLM_API_KEY"].strip()
+    data = snapshot()
+    system = {"role": "system", "content": RULES + "\n" + json.dumps(data, ensure_ascii=False)}
+    history = []
+    first = " ".join(sys.argv[1:]).strip()
+    print(f"Учебный каталог · снимок {data['момент']} · склады Север и Центр", flush=True)
+    if not first:
+        print('Например: «Сколько пар перчаток Гранит 14 oz свободно на Севере?»  Выход: /выход.')
+    while True:
+        try:
+            question = first or input("Вопрос › ").strip()
+        except EOFError:
+            return
+        if question.lower() in {"/выход", "/exit"}:
+            return
+        if not question:
+            continue
+        if len(question) > 1200:
+            print("Для демонстрации сократите вопрос до 1200 символов.", file=sys.stderr)
+            if first:
+                sys.exit(2)
+            continue
+        current = {"role": "user", "content": question}
+        answer = ask([system, *history, current], key)
+        print(answer, flush=True)
+        if first:
+            return
+        history = [*history, current, {"role": "assistant", "content": answer}][-4:]
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except (HTTPError, URLError, TimeoutError, RuntimeError, OSError, ValueError, KeyError) as exc:
+        sys.exit(f"Ошибка демонстрации: {exc}")
+    except KeyboardInterrupt:
+        print()
