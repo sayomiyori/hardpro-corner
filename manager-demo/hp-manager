@@ -24,6 +24,17 @@ RULES = """Ты помогаешь менеджеру магазина. Отве
 служебные поля, если о них не спрашивают. Время замера уместно, если оно помогает ответить."""
 
 
+ARCHIVE_PATH = Path.home() / ".local/share/hardpro/onec-pilot/catalog.json"
+ARCHIVE_RULES = """Ты помогаешь менеджеру по русскоязычной архивной выгрузке 1С. Дата чтения дана в сводке.
+На вопрос об остатке без явного запроса текущей даты дай известные числа из снимка. Для выбранной
+характеристики используй только поле «свободно» по названному складу. Для двух складов подпиши
+каждое число своим городом. Сверяй размер, цвет и название, уточняй неоднозначный вариант.
+На вопрос о наличии сейчас или сегодня честно сообщи, что живого подтверждения нет, и можешь
+назвать архивные количества на дату чтения. Не обещай бронь, поступление или продажу.
+Нет складской строки — нет сведений. Ноль подтверждён только при явном значении 0. Сведения
+о товарах вне выборки, ценах и сроках поставки неизвестны. Ответь кратко на русском."""
+
+
 def snapshot():
     data = json.loads((HERE / "catalog-demo.json").read_text(encoding="utf-8"))
     as_of = datetime.fromisoformat(data["момент"])
@@ -66,13 +77,28 @@ def main():
     settings = dict(line.split("=", 1) for line in KEY_FILE.read_text().splitlines()
                     if line.startswith("VLLM_API_KEY="))
     key = settings["VLLM_API_KEY"].strip()
-    data = snapshot()
-    system = {"role": "system", "content": RULES + "\n" + json.dumps(data, ensure_ascii=False)}
+    args = sys.argv[1:]
+    archival = args[:1] == ["--onec"]
+    if archival:
+        args = args[1:]
+        data = json.loads(ARCHIVE_PATH.read_text(encoding="utf-8"))
+        rules = ARCHIVE_RULES
+        label = "Выгрузка 1С"
+    else:
+        data = snapshot()
+        rules = RULES
+        label = "Учебный каталог"
+    system = {"role": "system", "content": rules + "\n" + json.dumps(data, ensure_ascii=False)}
     history = []
-    first = " ".join(sys.argv[1:]).strip()
-    print(f"Учебный каталог · снимок {data['момент']} · склады Север и Центр", flush=True)
+    first = " ".join(args).strip()
+    print(f"{label} · {data['момент']} · {', '.join(data['склады'])}", flush=True)
     if not first:
-        print('Например: «Сколько пар перчаток Гранит 14 oz свободно на Севере?»  Выход: /выход.')
+        if archival:
+            for item in data["товары"]:
+                print(f"  {item['товар']} — {item['вариант']}")
+            print("Спросите об остатке любого из этих вариантов. Выход: /выход.")
+        else:
+            print('Например: «Сколько пар перчаток Гранит 14 oz свободно на Севере?»  Выход: /выход.')
     while True:
         try:
             question = first or input("Вопрос › ").strip()
@@ -89,6 +115,8 @@ def main():
             continue
         current = {"role": "user", "content": question}
         answer = ask([system, *history, current], key)
+        if archival:
+            print(f"По выгрузке 1С на {data['момент']}:", flush=True)
         print(answer, flush=True)
         if first:
             return
