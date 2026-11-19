@@ -32,3 +32,11 @@ logs/
 __pycache__/
 node_modules/
 .serena/
+
+# Private web pilot runtime
+relay.secret
+access.json
+*.env
+customer.json
+full-catalog.json
+inflight/

@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="icon" href="data:,"><title>HARD-PRO · Помощник по каталогу</title>
+<style>html{font:18px system-ui;background:#f6f6f2;color:#202321}main{max-width:46rem;margin:13vh auto;padding:1.2rem}h1{font-size:clamp(2rem,7vw,4rem);line-height:1.05}p{max-width:37rem;line-height:1.55}</style>
+<main><strong>HARD-PRO</strong><h1>Помощник по каталогу</h1><p>Откройте чат справа внизу. Спросите о модели, размере или наличии в городе. Помощник читает доступное количество с локальной витрины.</p></main>
+<script type="module">
+import Chatbot from '/embed/web.js';
+Chatbot.init({
+ chatflowid:'__FLOW__',apiHost:window.location.origin,
+ theme:{button:{backgroundColor:'#253f34',iconColor:'#ffffff'},chatWindow:{
+ title:'Каталог HARD-PRO',showTitle:true,showAgentMessages:false,
+ welcomeMessage:'Здравствуйте! Какой товар ищете? Можете указать размер и город.',
+ errorMessage:'Не удалось получить ответ. Попробуйте ещё раз.',
+ starterPrompts:['Какие есть тайские носки OxxFire?'],
+ botMessage:{backgroundColor:'#f1f4ef',textColor:'#182820',showAvatar:false},
+ userMessage:{backgroundColor:'#253f34',textColor:'#ffffff',showAvatar:false},
+ textInput:{placeholder:'Спросите о товаре или размере',sendButtonColor:'#253f34'}
+ }}
+});
+</script></html>

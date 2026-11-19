@@ -1,0 +1,11 @@
+<!doctype html><html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Каталог HARD-PRO</title>
+<style>html,body,flowise-fullchatbot{display:block;margin:0;width:100%;height:100%;font-family:system-ui}</style>
+<flowise-fullchatbot></flowise-fullchatbot><script type="module">
+import Chatbot from '__PREFIX__/embed/web.js';
+Chatbot.initFull({chatflowid:'__FLOW__',apiHost:location.origin+'__PREFIX__',theme:{chatWindow:{
+ title:'Каталог HARD-PRO',showTitle:true,welcomeMessage:'Здравствуйте! Какой товар, размер или город вас интересует?',
+ errorMessage:'Сейчас не получается проверить наличие на сайте. Попробуйте ещё раз.',
+ botMessage:{backgroundColor:'#f1f4ef',textColor:'#182820',showAvatar:false},
+ userMessage:{backgroundColor:'#253f34',textColor:'#fff',showAvatar:false},textInput:{placeholder:'Спросите о товаре или размере',sendButtonColor:'#253f34'}
+}}});
+</script></html>
