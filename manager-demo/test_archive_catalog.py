@@ -21,6 +21,7 @@ class CatalogTest(unittest.TestCase):
 
     def test_distinct_sizes_missing_stock_and_duplicate_labels(self):
         self.assertIn("свободно 2.", self.query("01", "XL"))
+        self.assertIn("свободно 2.", self.query("01", "XL White"))
         self.assertIn("свободно 0.", self.query("01", "XXL"))
         self.assertIn("Уточните", self.query("01", "M"))
         self.assertIn("[ID c]", self.catalog.menu())

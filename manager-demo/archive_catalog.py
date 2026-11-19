@@ -7,6 +7,9 @@ COLORS = re.compile(r"\b(красн|черн|бел|син|зелен|желт|�
 SIZES = re.compile(r"\b(?:[2-6]?[xх]{1,5}[slл]|xxs|xs|s|m|l|[мл](?=\s*(?:[,?.!]|$))|\d+(?:[.,]\d+)?\s*(?:oz|унци[яийю]|унций|см|сантиметр[а-я]*|кг))\b", re.I)
 ALIASES = {"грин": "green", "хилл": "hill", "хил": "hill", "джуниор": "junior", "венум": "venum",
            "адидас": "adidas", "эверласт": "everlast", "твинс": "twins"}
+COLOR_NAMES = {"red": "красный", "black": "черный", "white": "белый", "blue": "синий",
+               "green": "зеленый", "yellow": "желтый", "grey": "серый", "gray": "серый",
+               "pink": "розовый", "orange": "оранжевый", "purple": "фиолетовый", "brown": "коричневый"}
 
 PARSE = """Ты разбираешь вопросы о каталоге спортивного магазина. Верни JSON с полями product, variant, warehouse.
 Все значения строки. product — только название, категория, фирма, модель, артикул или код.
@@ -20,11 +23,13 @@ variant — только явно названные размер, вес, ро�
 Не отвечай на вопрос и не называй количество. Если определить товар нельзя, оставь product пустым.
 """
 
-def words(text):
+def words(text, *, variant=False):
     text = text.casefold().replace("ё", "е")
     result = []
     for word in re.findall(r"[2-6]x[ls]\b|\d+(?:[.,]\d+)?|[a-zа-я]+", text):
         word = ALIASES.get(word, word)
+        if variant:
+            word = COLOR_NAMES.get(word, word)
         word = word.replace(",", ".")
         if re.fullmatch(r"[2-6]x[ls]", word):
             word = "x" * int(word[0]) + word[-1]
@@ -37,6 +42,9 @@ def words(text):
         if word not in {"для", "на", "по", "и", "в", "из", "с", "р", "размер", "цвет", "рост"}:
             result.append(word)
     return set(result)
+
+
+COLOR_TERMS = set().union(*(words(color) for color in COLOR_NAMES.values()))
 
 
 class Catalog:
@@ -54,7 +62,13 @@ class Catalog:
                 self.product_words[code] = words(" ".join([row["товар"], row["артикул"], code]))
                 self.by_product[code] = []
             self.by_product[code].append(idx)
-            self.variant_words.append(words(row["вариант"]))
+            attrs = words(row["вариант"], variant=True)
+            title = words(row["товар"])
+            if attrs & COLOR_TERMS:
+                title -= COLOR_TERMS
+            if any(x[:1].isdigit() or re.fullmatch(r"(?:x*[sl]|m)", x) for x in attrs):
+                title = {x for x in title if not x[:1].isdigit() and not re.fullmatch(r"(?:x*[sl]|m)", x)}
+            self.variant_words.append(attrs | title)
         self.count_names = Counter((r["код"], r["вариант"]) for r in self.rows)
         self.codes = {code.casefold(): code for code in self.products}
         self.criteria = dict(product="", variant="", warehouse="")
@@ -105,14 +119,14 @@ class Catalog:
         product, variant = criteria["product"].strip(), criteria["variant"].strip()
         if not product:
             return "Какой товар вас интересует? Назовите товар, марку или артикул."
-        terms, attrs = words(product), words(variant)
+        terms, attrs = words(product), words(variant, variant=True)
         if not terms:
             return "Уточните название или код товара."
         direct = [code for code, r in self.products.items()
                   if product.casefold() in {s.casefold() for s in (code, r["артикул"], r["товар"]) if s}]
         codes = direct or [code for code, tokens in self.product_words.items() if terms <= tokens]
         matches = [i for code in codes for i in self.by_product[code]
-                   if (attrs <= (self.variant_words[i] | words(self.products[code]["товар"]))
+                   if (attrs <= self.variant_words[i]
                        or (variant and variant == self.rows[i]["id"]))]
         # A failed size must never fall through to a similar size or turn into a zero.
         if not matches:
