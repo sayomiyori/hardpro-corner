@@ -36,11 +36,26 @@ def collect(capture, manifest_digest, selection):
     if not all(ds["complete_for_declared_scope"] for ds in (stocks, variants)):
         raise ValueError("Выгрузка неполна для своей области чтения")
     stores = selection["warehouses"]
-    wanted = {(x["product_uuid"], x["characteristic_uuid"]) for x in selection["variants"]}
-    if not wanted or len(wanted) != len(selection["variants"]) or not stores or len(set(stores.values())) != len(stores):
+    if not stores or len(set(stores.values())) != len(stores):
         raise ValueError("Пустой или неоднозначный отбор")
     products = {r["uuid"]: r for r in items if not r["deleted"] and not r["is_group"]}
     names = {(r["product_uuid"], r["characteristic_uuid"]): r["name"] for r in variants["rows"] if not r["deleted"]}
+    if "variants" in selection:
+        pairs = [(x["product_uuid"], x["characteristic_uuid"]) for x in selection["variants"]]
+        if not pairs or len(set(pairs)) != len(pairs) or any(p not in names for p in pairs):
+            raise ValueError("Неизвестный, пустой или неоднозначный отбор характеристик")
+    else:
+        deleted = {(r["product_uuid"], r["characteristic_uuid"]) for r in variants["rows"] if r["deleted"]}
+        pairs = [p for p in names if p[0] in products]
+        for row in stocks["rows"]:
+            pair = (row["product_uuid"], row["characteristic_uuid"])
+            if (row["physical_warehouse_uuid"] in stores and pair[0] in products
+                    and pair not in names and pair not in deleted):
+                names[pair] = "Характеристика без записи в справочнике"
+                pairs.append(pair)
+        covered = {p[0] for p in pairs}
+        pairs.extend((uid, "") for uid in products if uid not in covered)
+    wanted = set(pairs)
     balances = {}
     for row in stocks["rows"]:
         pair = (row["product_uuid"], row["characteristic_uuid"])
@@ -58,12 +73,12 @@ def collect(capture, manifest_digest, selection):
     label = as_of.astimezone(timezone(timedelta(hours=3))).strftime("%d.%m.%Y %H:%M МСК")
     result = {"источник": "Архивная выгрузка 1С", "момент": label, "дата_чтения": stocks["finished_utc"],
               "склады": list(stores.values()), "товары": []}
-    for entry in selection["variants"]:
-        pair = (entry["product_uuid"], entry["characteristic_uuid"])
+    for pair in pairs:
         item = products[pair[0]]
         if item["code"] not in stocks["completed_codes"] or item["code"] not in variants["completed_codes"]:
             raise ValueError("Товар вне подтверждённого чтения")
-        result["товары"].append({"товар": item["name"], "артикул": item["article"], "вариант": names[pair],
+        result["товары"].append({"товар": item["name"], "артикул": item["article"], "код": item["code"],
+                                 "id": pair[1], "вариант": names.get(pair) or "Характеристика без названия",
                                  "склады": {name: balances.get((*pair, uid), {"статус": "нет строки в выгрузке"})
                                             for uid, name in stores.items()}})
     return result
@@ -71,11 +86,15 @@ def collect(capture, manifest_digest, selection):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ("capture", "selection", "output"):
+    for name in ("capture", "output"):
         parser.add_argument("--" + name, type=Path, required=True)
+    scope = parser.add_mutually_exclusive_group(required=True)
+    scope.add_argument("--selection", type=Path, help="Склады и выбранные характеристики")
+    scope.add_argument("--warehouses", type=Path, help="Словарь складов для импорта всего каталога")
     parser.add_argument("--manifest-sha256", required=True)
     args = parser.parse_args()
-    data = collect(args.capture, args.manifest_sha256, read_json(args.selection))
+    selection = read_json(args.selection) if args.selection else {"warehouses": read_json(args.warehouses)}
+    data = collect(args.capture, args.manifest_sha256, selection)
     with tempfile.NamedTemporaryFile(dir=args.output.parent, mode="w", encoding="utf-8", delete=False) as tmp:
         try:
             json.dump(data, tmp, ensure_ascii=False, indent=2)

@@ -43,6 +43,8 @@ class SnapshotTest(unittest.TestCase):
             self.assertEqual(rows["Склад А"]["свободно"], "5")
             self.assertEqual(rows["Склад Б"]["свободно"], "0")
             self.assertNotIn("свободно", rows["Склад В"])
+            full = collect(directory, digest, {"warehouses": stores})
+            self.assertEqual(full["товары"], result["товары"])
             (directory / "stocks-snapshot.json").write_text("{}", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "контрольная сумма"):
                 collect(directory, digest, selection)
