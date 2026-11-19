@@ -1,0 +1,13 @@
+[Unit]
+Description=Private SSH link between HARD-PRO staging and its catalogue assistant
+StartLimitIntervalSec=0
+
+[Service]
+EnvironmentFile=%h/.config/hardpro-widget-link/target.env
+ExecStart=/usr/bin/ssh -CNT -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile=%h/.config/hardpro-widget-link/known_hosts -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o ConnectTimeout=9 -i %h/.config/hardpro-widget-link/id_ed25519 -L 127.0.0.1:18865:127.0.0.1:18094 -R 127.0.0.1:18866:127.0.0.1:8766 ${STAGE_TARGET}
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target

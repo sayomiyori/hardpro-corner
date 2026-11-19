@@ -1,79 +1,59 @@
-"""The shop-side preview relay sends a fresh public catalogue with each prediction."""
+"""Local shop preview. The hosted storefront has its own direct server link."""
 import http.client
 import json
-import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from uuid import UUID
 
-STAGE = "https://hardpro.test.mp-bridge.ru"
-LOCAL = "http://127.0.0.1:8764"
-KEY = (Path(__file__).parent / "relay.secret").read_text().strip()
+ORIGIN="http://127.0.0.1:8094"
+KEY=(Path(__file__).parent/"relay.secret").read_text().strip()
 
 
 class Handler(BaseHTTPRequestHandler):
-    def log_message(self, *args):
+    def log_message(self,*args):
         pass
 
-    def upstream(self, method, path, port, headers=None, data=None):
-        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=100)
-        try:
-            conn.request(method, path, body=data, headers=headers or {})
-            res = conn.getresponse()
-            return res.status, res.getheader("Content-Type","application/octet-stream"), res.read(8_000_001)
-        finally:
-            conn.close()
+    def approved(self):
+        return (self.headers.get("Host")=="127.0.0.1:8764" and self.path=="/ask"
+                and self.headers.get("Origin")==ORIGIN)
 
-    def reply(self, status, mime, body):
+    def send_body(self,status,mime,data):
         self.send_response(status)
-        self.send_header("Content-Type", mime)
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("X-Content-Type-Options", "nosniff")
-        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Access-Control-Allow-Origin",ORIGIN)
+        self.send_header("Access-Control-Allow-Methods","POST, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers","Content-Type")
+        self.send_header("Cache-Control","no-store")
+        self.send_header("Content-Type",mime)
+        self.send_header("Content-Length",str(len(data)))
         self.end_headers()
-        self.wfile.write(body)
+        if data:self.wfile.write(data)
 
-    def allowed_host(self):
-        return self.headers.get("Host") in {"127.0.0.1:8764","localhost:8764"}
-
-    def do_GET(self):
-        if not self.allowed_host() or not re.fullmatch(r"/(?:|inline|stage/inline|embed/web\.js|api/v1/(?:public-chatbotConfig|chatflows-streaming|chatflows-uploads)/[a-f0-9-]{36})(?:\?[^#\s]*)?", self.path):
-            return self.send_error(404)
-        try:
-            self.reply(*self.upstream("GET", self.path, 8766))
-        except OSError:
-            self.send_error(503)
+    def do_OPTIONS(self):
+        if not self.approved():return self.send_error(403)
+        self.send_body(204,"text/plain",b"")
 
     def do_POST(self):
-        origin=self.headers.get("Origin")
-        if not self.allowed_host() or origin not in {LOCAL,STAGE,"http://localhost:8764"}:
-            return self.send_error(403)
-        if not re.fullmatch(r"/api/v1/prediction/[a-f0-9-]{36}",self.path):
-            return self.send_error(404)
+        if not self.approved():return self.send_error(403)
         try:
-            size=int(self.headers.get("Content-Length","-1"))
-            if not 0 < size <= 131072 or self.headers.get_content_type()!="application/json":
-                return self.send_error(400)
-            body=json.loads(self.rfile.read(size))
-            q=body["question"]
-            sid=str(UUID(body["chatId"]))
-            if not isinstance(q,str) or not 0<len(q.strip())<=1200:
-                return self.send_error(400)
-        except (ValueError,KeyError,TypeError,AttributeError):
-            return self.send_error(400)
-        stage=origin==STAGE
-        try:
-            status,mime,raw=self.upstream("GET","/internal/catalog-assistant",18765 if stage else 8094,
-                                         {"Host":"127.0.0.1:"+("18094" if stage else "8094")})
-            if status!=200 or "application/json" not in mime or len(raw)>8_000_000:
-                return self.send_error(503)
-            snapshot=json.loads(raw)
-            data=json.dumps({"chatId":sid,"question":q,"site":"stage" if stage else "local",
-                             "catalog":snapshot},ensure_ascii=False).encode()
-            self.reply(*self.upstream("POST",self.path,8766,{"Authorization":"Bearer "+KEY,
-                        "Content-Type":"application/json"},data))
-        except (OSError,ValueError,http.client.HTTPException):
-            self.send_error(503)
+            n=int(self.headers.get("Content-Length","0"))
+            if not 0<n<=24000 or self.headers.get_content_type()!="application/json":return self.send_error(400)
+            turns=json.loads(self.rfile.read(n))["turns"]
+            with self.get_connection(8094) as src:
+                src.request("GET","/internal/catalog-assistant")
+                res=src.getresponse()
+                if res.status!=200:raise OSError()
+                catalog=json.loads(res.read(8_000_001))
+            with self.get_connection(8766) as dst:
+                dst.request("POST","/ask",json.dumps({"catalog":catalog,"turns":turns},ensure_ascii=False).encode(),
+                            {"Content-Type":"application/json","Authorization":"Bearer "+KEY})
+                res=dst.getresponse()
+                self.send_body(res.status,"application/json; charset=utf-8",res.read(65536))
+        except (OSError,ValueError,KeyError,TypeError,http.client.HTTPException):
+            self.send_body(503,"application/json",b'{"detail":"catalog_unavailable"}')
+
+    @staticmethod
+    def get_connection(port):
+        from contextlib import closing
+        return closing(http.client.HTTPConnection("127.0.0.1",port,timeout=75))
 
 
 if __name__=="__main__":

@@ -48,7 +48,10 @@ def read_store(site, nonce):
     data = json.loads(path.read_text())
     if data["site"] != site:
         raise ValueError("Incorrect catalogue source")
-    data = data["catalog"]
+    return store_from_data(data["catalog"])
+
+
+def store_from_data(data):
     rows = []
     for r in data["rows"]:
         stock = [r["sevastopol"], r["simferopol"]]
