@@ -39,6 +39,35 @@ Open WebUI работает в личном однопользовательск
 
 Службе Windows нужны Python с pywin32, совместимый COMConnector, собственный сертификат сервера и доверенный сертификат для аутентификации клиента. В её приватной конфигурации задаются `bind`, `port`, `cert`, `key`, `client_ca`, `password_dpapi` и список двух UUID `warehouses`. Файл пароля содержит результат Windows DPAPI для UTF-8 и доступен только службе и администратору. Ограничьте входящий маршрут до узла Ubuntu.
 
+### Проверка COMConnector на Windows
+
+Если при `enroll` появляется `AttributeError: V83.COMConnector.Connect`, Python создал COM-объект, но не смог найти его метод. Проверка пароля начинается только после вызова `Connect`. Выполните блок в PowerShell из каталога читателя. Он использует то же окружение Python, выводит имя библиотеки и идентификатор метода либо исходный код сбоя COM. Подключение к базе для этих проверок не открывается.
+
+```powershell
+@'
+from pywintypes import com_error
+from win32com.client import Dispatch
+
+try:
+    com = Dispatch("V83.COMConnector")._oleobj_
+except com_error as error:
+    raise SystemExit(f"COMConnector HRESULT=0x{error.hresult & 0xffffffff:08X}") from None
+
+for name, check in (
+    ("TypeLib", lambda: com.GetTypeInfo().GetContainingTypeLib()[0].GetDocumentation(-1)[0]),
+    ("Connect DISPID", lambda: com.GetIDsOfNames(0, "Connect")),
+):
+    try:
+        print(name, check())
+    except com_error as error:
+        print(f"{name} HRESULT=0x{error.hresult & 0xffffffff:08X}")
+'@ | .\venv\Scripts\python.exe -
+```
+
+На проверенной платформе 8.3.27.1688 результат — `TypeLib V83` и `Connect DISPID 11`. Код `0x8002801D` указывает на незарегистрированную библиотеку типов. В этом случае администратору Windows нужно восстановить компонент COM-соединения 1С той же версии и разрядности, которую использует сервер, и повторить проверку. При другом коде сначала проверьте регистрацию и путь конкретного компонента. [Документация 1С о компонентах внешнего соединения](https://its.1c.ru/db/content/edtdoc/src/topics/t000419.html) · [Коды загрузки библиотеки типов Windows](https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-loadregtypelib).
+
+### Проверка маршрута с Ubuntu
+
 На Ubuntu приватный JSON задаёт `host`, `port`, `ca`, `cert`, `key` и `warehouses` в формате «название → UUID». Указанный хост должен совпадать с именем или IP в сертификате сервера. Этот файл подключается к `hardpro-catalog.service` через переменную `ONEC_READER_CONFIG`. Список вариантов кешируется на пять минут. При выборе размера приложение запрашивает регистр заново, вычитает резерв и отмечает пропущенную строку как неизвестный остаток. При недоступной 1С менеджер увидит сообщение о недоступности источника. Архивный режим явно подписан датой выгрузки.
 
 Проверка на Ubuntu с настоящим vLLM и учебным сервером охватила защищённое соединение, вычитание резерва, отсутствие строки и отказ клиенту без сертификата. Для приёмки рабочего контура задайте тот же вопрос в Open WebUI и независимо прочтите тот же регистр по двум физическим складам. Проверка через MCP с рабочего компьютера подтверждает доступность источника только с этого компьютера.
