@@ -5,8 +5,10 @@ import os
 import runpy
 import secrets
 import sys
+import threading
 import time
 import uuid
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 
@@ -25,10 +27,9 @@ vllm_key = next(line.partition("=")[2].strip() for line in cli["KEY_FILE"].read_
 
 
 from site_catalog import read_store
-from onec_live import configured_reader
 from manager_knowledge import BLINCHIKI, competition_answer, expand_terms
+from onec_live import CatalogNotReady, configured_reader
 
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 models = {"manager": "hardpro-manager", "buyer": "hardpro-shop"}
 reader_config = os.environ.get("ONEC_READER_CONFIG")
 if not reader_config:
@@ -36,6 +37,22 @@ if not reader_config:
     archive = Catalog(data)
     archive_date = data["момент"]
 keys = {role: os.environ[role.upper() + "_TOKEN"] for role in models}
+
+
+@asynccontextmanager
+async def lifespan(app):
+    stop = threading.Event()
+    if reader_config:
+        reader = configured_reader(reader_config)
+        await run_in_threadpool(reader.load_snapshot)
+        threading.Thread(target=reader.refresh_loop, args=(stop,), daemon=True).start()
+    try:
+        yield
+    finally:
+        stop.set()
+
+
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
 
 def authorize(role, request):
@@ -110,6 +127,8 @@ async def complete(role: str, request: Request):
         raise HTTPException(400, "Нет вопроса")
     try:
         answer = await run_in_threadpool(reply, role, turns)
+    except CatalogNotReady as exc:
+        raise HTTPException(503, str(exc)) from exc
     except (OSError, ValueError, RuntimeError, KeyError):
         raise HTTPException(503, "Поиск временно недоступен. Повторите вопрос.")
     base = dict(id="chatcmpl-" + uuid.uuid4().hex, created=int(time.time()), model=models[role])

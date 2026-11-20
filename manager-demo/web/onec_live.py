@@ -1,15 +1,17 @@
 """Manager-only 1C connection. Credentials are private TLS files on the server."""
 import copy
 import json
+import logging
+import os
 import re
 import threading
-import time
 import ssl
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
-from http.client import HTTPSConnection
+from http.client import HTTPException, HTTPSConnection
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 from urllib.parse import urlencode
 from uuid import UUID
 
@@ -51,12 +53,23 @@ def read_stamp(value):
         raise ValueError("Время ответа 1С не подтверждено")
     return stamp.astimezone(timezone(timedelta(hours=3)))
 
+SNAPSHOT = Path.home() / ".local/share/hardpro/catalog-web/data/catalog-snapshot.json"
+REFRESH_SECONDS = 900
+MOSCOW = timezone(timedelta(hours=3))
+CATALOG_FIELDS = {"код", "товар", "артикул", "вариант", "product", "id"}
+SOURCE_ERRORS = (OSError, HTTPException, ValueError, TypeError, KeyError)
+log = logging.getLogger(__name__)
+
+
+class CatalogNotReady(RuntimeError):
+    pass
+
 
 class OnecReader:
-    def __init__(self, config):
+    def __init__(self, config, snapshot_path=SNAPSHOT):
         self.lock = threading.Lock()
         self.index = None
-        self.expires = 0
+        self.snapshot_path = snapshot_path
         self.host = config["host"]
         self.port = int(config["port"])
         self.stores = {name: str(UUID(uid)) for name, uid in config["warehouses"].items()}
@@ -81,29 +94,94 @@ class OnecReader:
 
     def session(self):
         with self.lock:
-            if self.index is None or time.monotonic() >= self.expires:
-                self.index = self.catalog()
-                self.expires = time.monotonic() + 300
+            if self.index is None:
+                raise CatalogNotReady("Справочник 1С ещё загружается. Повторите поиск позже.")
             session = copy.copy(self.index)
         session.criteria = session.criteria.copy()
         session.options = []
         return session
 
-    def catalog(self):
-        after, rows, seen = "", [], set()
+    def build_index(self, data):
+        if not isinstance(data, dict) or set(data) != {"момент", "товары"}:
+            raise ValueError("Некорректный формат копии справочника")
+        stamp = datetime.fromisoformat(data["момент"])
+        rows = data["товары"]
+        if stamp.tzinfo is None or not isinstance(rows, list) or not rows:
+            raise ValueError("Копия справочника пуста или без даты")
+        seen = set()
+        for row in rows:
+            if (not isinstance(row, dict) or set(row) != CATALOG_FIELDS
+                    or not all(isinstance(value, str) for value in row.values())
+                    or not row["код"].strip() or not row["товар"].strip()):
+                raise ValueError("Некорректная строка справочника")
+            key = (str(UUID(row["product"])), str(UUID(row["id"])))
+            if key in seen:
+                raise ValueError("Повтор строки справочника")
+            seen.add(key)
+            row["product"], row["id"] = key
+        return LiveCatalog({"склады": list(self.stores), "товары": rows}, self, stamp.astimezone(MOSCOW))
+
+    def load_snapshot(self):
+        try:
+            index = self.build_index(json.loads(self.snapshot_path.read_bytes()))
+        except FileNotFoundError:
+            return
+        except SOURCE_ERRORS as exc:
+            log.warning("Cannot load manager catalog snapshot (%s)", type(exc).__name__)
+            return
+        with self.lock:
+            self.index = index
+
+    def save_snapshot(self, data):
+        self.snapshot_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+        file = NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.snapshot_path.parent,
+                                  prefix=".catalog-", delete=False)
+        pending = Path(file.name)
+        try:
+            with file:
+                json.dump(data, file, ensure_ascii=False, separators=(",", ":"))
+                file.flush()
+                os.fsync(file.fileno())
+            pending.replace(self.snapshot_path)
+        finally:
+            pending.unlink(missing_ok=True)
+
+    def refresh_snapshot(self, stop):
+        data = self.catalog(stop)
+        if data is None or stop.is_set():
+            return
+        index = self.build_index(data)
+        if stop.is_set():
+            return
+        self.save_snapshot(data)
+        with self.lock:
+            self.index = index
+        log.info("Manager catalog snapshot updated: %d rows", len(index.rows))
+
+    def refresh_loop(self, stop):
+        while not stop.is_set():
+            try:
+                self.refresh_snapshot(stop)
+            except SOURCE_ERRORS as exc:
+                log.warning("Cannot refresh manager catalog snapshot (%s)", type(exc).__name__)
+            stop.wait(REFRESH_SECONDS)
+
+    def catalog(self, stop):
+        after, rows, cursors = "", [], {""}
         for _ in range(2048):
+            if stop.is_set():
+                return None
             page = self.get("/v1/catalog", after=after)
-            for row in page["items"]:
-                key = (str(UUID(row["product"])), str(UUID(row["id"])))
-                if key in seen or not row["код"] or not row["товар"]:
-                    raise ValueError("Некорректная страница справочника")
-                seen.add(key)
-                rows.append({**row, "product": key[0], "id": key[1]})
             cursor = page["next"]
+            items = page["items"]
+            if not isinstance(items, list) or (cursor is not None and not items):
+                raise ValueError("Некорректная страница справочника")
+            rows.extend(items)
             if cursor is None:
-                return LiveCatalog({"склады":list(self.stores), "товары":rows}, self)
-            if not cursor or cursor == after:
+                return {"момент": datetime.now(timezone.utc).isoformat(), "товары": rows}
+            if not isinstance(cursor, str) or cursor in cursors:
                 raise ValueError("Повтор страницы справочника")
+            cursors.add(cursor)
             after = cursor
         raise ValueError("Превышен предел страниц справочника")
 
@@ -165,10 +243,16 @@ class OnecReader:
 
 
 class LiveCatalog(Catalog):
-    def __init__(self, data, reader):
+    def __init__(self, data, reader, snapshot_stamp=None):
         super().__init__(data)
         self.reader = reader
         self.selected = None
+        self.snapshot_stamp = snapshot_stamp
+
+    def with_snapshot_date(self, text):
+        if self.snapshot_stamp is None:
+            return text
+        return f"Справочник 1С на {self.snapshot_stamp:%d.%m.%Y %H:%M} МСК.\n{text}"
 
     def show(self, idx, city):
         # История нужна для выбора варианта. Запрашиваем остатки только для последней реплики.
@@ -210,7 +294,7 @@ class LiveCatalog(Catalog):
                 city = self.selected[1] if self.selected else self.criteria["warehouse"]
                 self.selected = (matches, city) if matches else self.selected
         if self.selected is None:
-            return result.replace("в выгрузке", "в справочнике 1С")
+            return self.with_snapshot_date(result.replace("в выгрузке", "в справочнике 1С"))
         indices, city = self.selected
         stores = [city] if city else self.stores
         if budget is not None and site_price:
@@ -222,12 +306,21 @@ class LiveCatalog(Catalog):
         elif len(indices) > 8:
             answer = "Уточните размер или цвет. Можно запросить остатки сразу для восьми вариантов."
         else:
-            answer = "\n\n".join(self.stock_text(idx, stores) for idx in indices)
+            answer = self.stocks_text(indices, stores)
         if want_details:
             answer = "\n\n".join(filter(None, [self.details_text(indices), answer]))
         if site_price:
             answer += "\n\nЦены сайта по этим вариантам пока недоступны."
         return answer
+
+    def stocks_text(self, indices, stores):
+        try:
+            return "\n\n".join(self.stock_text(idx, stores) for idx in indices)
+        except SOURCE_ERRORS:
+            titles = [f"{self.rows[idx]['товар']} — {self.label(idx)}." for idx in indices]
+            return self.with_snapshot_date("\n".join([
+                *titles, "Актуальное наличие в 1С подтвердить не удалось."
+            ]))
 
     def stock_text(self, idx, stores):
         row = self.rows[idx]
@@ -263,9 +356,9 @@ class LiveCatalog(Catalog):
             batch = products[start:start + 24]
             try:
                 stamp, stocks, prices = self.reader.offers(batch)
-            except OSError:
+            except SOURCE_ERRORS:
                 return "Розничные цены 1С сейчас недоступны." + (
-                    "\n\n" + "\n\n".join(self.stock_text(idx, stores) for idx in indices)
+                    "\n\n" + self.stocks_text(indices, stores)
                     if budget is None and len(indices) <= 8 else ""
                 )
             for product in batch:
@@ -306,7 +399,7 @@ class LiveCatalog(Catalog):
             lines.append(f"Показано 24 из {len(variants)} характеристик.")
         try:
             details = self.reader.details(row)
-        except OSError:
+        except SOURCE_ERRORS:
             lines.append("Описание товара из 1С сейчас недоступно.")
             return "\n".join(lines)
         if details:
