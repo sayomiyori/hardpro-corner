@@ -105,6 +105,17 @@ class Catalog:
         lines.append("Сегодняшнее наличие требует свежей сверки.")
         return "\n".join(lines)
 
+    def matching_rows(self, product, variant):
+        terms, attrs = words(product), words(variant, variant=True)
+        if not terms:
+            return [], []
+        direct = [code for code, r in self.products.items()
+                  if product.casefold() in {s.casefold() for s in (code, r["артикул"], r["товар"]) if s}]
+        codes = direct or [code for code, tokens in self.product_words.items() if terms <= tokens]
+        matches = [i for code in codes for i in self.by_product[code]
+                   if attrs <= self.variant_words[i] or (variant and variant == self.rows[i]["id"])]
+        return codes, matches
+
     def search(self, criteria):
         if not isinstance(criteria, dict) or set(criteria) != set(self.criteria) or not all(
                 isinstance(x, str) and len(x) <= 500 for x in criteria.values()):
@@ -119,15 +130,9 @@ class Catalog:
         product, variant = criteria["product"].strip(), criteria["variant"].strip()
         if not product:
             return "Какой товар вас интересует? Назовите товар, марку или артикул."
-        terms, attrs = words(product), words(variant, variant=True)
-        if not terms:
+        if not words(product):
             return "Уточните название или код товара."
-        direct = [code for code, r in self.products.items()
-                  if product.casefold() in {s.casefold() for s in (code, r["артикул"], r["товар"]) if s}]
-        codes = direct or [code for code, tokens in self.product_words.items() if terms <= tokens]
-        matches = [i for code in codes for i in self.by_product[code]
-                   if (attrs <= self.variant_words[i]
-                       or (variant and variant == self.rows[i]["id"]))]
+        codes, matches = self.matching_rows(product, variant)
         # A failed size must never fall through to a similar size or turn into a zero.
         if not matches:
             self.options = []

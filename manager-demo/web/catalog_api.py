@@ -26,6 +26,7 @@ vllm_key = next(line.partition("=")[2].strip() for line in cli["KEY_FILE"].read_
 
 from site_catalog import read_store
 from onec_live import configured_reader
+from manager_knowledge import BLINCHIKI, competition_answer, expand_terms
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 models = {"manager": "hardpro-manager", "buyer": "hardpro-shop"}
@@ -58,6 +59,12 @@ def parse(system, question):
 
 
 def reply(role, turns):
+    if role == "manager":
+        competition = competition_answer(turns[-1], turns[:-1])
+        if competition:
+            return competition.replace("\n", "  \n")
+        if BLINCHIKI.search(expand_terms(turns[-1])):
+            return "Под «блинчиками» имеете в виду снарядные перчатки или диски для штанги?"
     if role == "buyer":
         source, separator, _ = turns[-1].partition("\n")
         parts = source.split(":")
