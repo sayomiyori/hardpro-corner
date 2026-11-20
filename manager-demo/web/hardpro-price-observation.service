@@ -1,0 +1,12 @@
+[Unit]
+Description=Observe public storefront SKU prices
+Wants=hardpro-stage-link.service
+After=hardpro-stage-link.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/.local/share/hardpro/catalog-web
+ExecStart=%h/.local/share/hardpro/vllm/bin/python widget.py
+UMask=0077
+NoNewPrivileges=yes
+TimeoutStartSec=40
