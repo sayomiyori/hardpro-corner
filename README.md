@@ -4,6 +4,7 @@
 
 - [Текущий статус](STATUS.md)
 - [Помощник менеджера](docs/manager-assistant.md)
+- [Гибридный поиск инструкций](docs/knowledge-retrieval-pilot.md)
 - [Проверка двух RTX 3090 от 19 ноября 2026 года](docs/server/2026-11-19-gpu-check.md)
 - [Правила хранения и публикации материалов](AGENTS.md)
 
