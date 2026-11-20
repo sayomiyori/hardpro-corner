@@ -111,6 +111,13 @@ class ManagerDialogTest(unittest.TestCase):
         self.assertNotIn("itftkd.sport", result)
         self.reader.offers.assert_not_called()
 
+        for federation in ('МФТ', 'ГТФ'):
+            with self.subTest(federation=federation):
+                answer = self.reply(['Какие шлемы для бокса есть?', 'Они подойдут для тхэквандо?',
+                                     f'{federation}, на соревнования'])
+                self.assertIn(federation, answer)
+                self.assertNotIn('itftkd.sport', answer)
+
     def test_missing_balance_and_partial_batch_never_mean_not_in_stock(self):
         self.rows = [catalog_row(str(i), f"Капа Демо {i}", "M") for i in range(BROWSE_LIMIT + 1)]
         result = self.reply(["Какие капы в наличии?"])

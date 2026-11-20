@@ -69,7 +69,9 @@ TAEKWONDO_FEDERATIONS = {
     "WT": (r"\b(?:wtf?|втф?)\b",
            "https://www.worldtaekwondo.org/att_file/documents/"
            "WT%20Competition%20Rules%20and%20Interpretation%20%28September%2030%2C%202024%29.pdf"),
-    "ITF": (r"\b(?:itf|итф|мфт)\b", "https://itftkd.sport/rules/"),
+    "ITF": (r"\b(?:itf|итф)\b", "https://itftkd.sport/rules/"),
+    "ГТФ": (r"\b(?:gtf|гтф)\b", None),
+    "МФТ": (r"\bмфт\b", None),
 }
 BROWSE_LIMIT = 24
 STOCK_ITEMS = 6
@@ -162,9 +164,11 @@ def taekwondo_answer(query, boxing):
     federation = federations[0] if len(federations) == 1 else None
     if federation and re.search(r"\b(?:соревновани\w*|турнир\w*|старт\w*)\b", query):
         _, source = TAEKWONDO_FEDERATIONS[federation]
-        return (prefix + f"Для соревнований {federation} нужно сверить актуальное положение старта "
-                f"и маркировку конкретного шлема. [Документы федерации {federation}]({source})\n"
-                "Допуск этих моделей пока не подтверждён. Какую модель и турнир проверить?")
+        instruction = (prefix + f"Для соревнований {federation} нужно сверить актуальное положение старта "
+                       "и маркировку конкретного шлема.")
+        if source:
+            instruction += f" [Документы федерации {federation}]({source})"
+        return instruction + "\nДопуск этих моделей пока не подтверждён. Какую модель и турнир проверить?"
     if federation and re.search(r"\bтренировк\w*\b", query):
         return (prefix + f"Для тренировки {federation} сверим назначение конкретной модели "
                 "с требованиями тренера. Как называется шлем?")
