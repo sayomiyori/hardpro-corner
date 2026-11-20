@@ -64,7 +64,27 @@ for name, check in (
 '@ | .\venv\Scripts\python.exe -
 ```
 
-На проверенной платформе 8.3.27.1688 результат — `TypeLib V83` и `Connect DISPID 11`. Код `0x8002801D` указывает на незарегистрированную библиотеку типов. В этом случае администратору Windows нужно восстановить компонент COM-соединения 1С той же версии и разрядности, которую использует сервер, и повторить проверку. При другом коде сначала проверьте регистрацию и путь конкретного компонента. [Документация 1С о компонентах внешнего соединения](https://its.1c.ru/db/content/edtdoc/src/topics/t000419.html) · [Коды загрузки библиотеки типов Windows](https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-loadregtypelib).
+На проверенной платформе 8.3.27.1688 результат — `TypeLib V83` и `Connect DISPID 11`. Код `0x8002801D` указывает на незарегистрированную библиотеку типов. Для этого случая 1С документирует ручную регистрацию установленной `comcntr.dll`. При другом коде сначала проверьте регистрацию и путь конкретного компонента. [Документация 1С о компонентах внешнего соединения](https://its.1c.ru/db/content/edtdoc/src/topics/t000419.html) · [Коды загрузки библиотеки типов Windows](https://learn.microsoft.com/en-us/windows/win32/api/oleauto/nf-oleauto-loadregtypelib).
+
+Для восстановления запустите 64-битный PowerShell от имени администратора. Блок берёт путь к DLL из действующей машинной регистрации, показывает путь и версию файла и регистрирует этот же компонент.
+
+```powershell
+& {
+    $ErrorActionPreference = 'Stop'
+    if (-not [Environment]::Is64BitProcess) { throw 'Open 64-bit PowerShell.' }
+    $root = 'Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Classes'
+    $clsid = (Get-Item -LiteralPath "$root\V83.COMConnector\CLSID").GetValue('')
+    $path = (Get-Item -LiteralPath "$root\CLSID\$clsid\InprocServer32").GetValue('')
+    $dll = Get-Item -LiteralPath $path
+    if ($dll.PSIsContainer -or $dll.Name -ine 'comcntr.dll') { throw 'Expected the registered comcntr.dll.' }
+    Write-Host "$($dll.FullName) ($($dll.VersionInfo.FileVersion))"
+    $result = Start-Process -FilePath "$env:windir\System32\regsvr32.exe" `
+        -ArgumentList ('"{0}"' -f $dll.FullName) -Wait -PassThru
+    if ($result.ExitCode -ne 0) { throw "regsvr32 exit code $($result.ExitCode)" }
+}
+```
+
+После успешной регистрации вернитесь в исходное окно PowerShell и повторите проверку. Когда обе строки выводятся без `HRESULT`, выполните `.\venv\Scripts\python.exe .\prepare_reader_windows.py enroll .\private` и введите пароль в появившемся приглашении. Сообщение «Учётная запись подтверждена 1С» означает, что сеанс открывается под нужным пользователем и пароль сохранён через DPAPI.
 
 ### Проверка маршрута с Ubuntu
 
