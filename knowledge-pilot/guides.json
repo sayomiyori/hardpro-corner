@@ -1,0 +1,100 @@
+[
+  {
+    "id": "sisu-3d-fit",
+    "scope": "sisu-3d",
+    "title": "Подгонка капы SISU 3D",
+    "source": "https://www.sisuguard.com/fitting/3d/",
+    "text": "SISU 3D размягчают в горячей воде примерно 76 °C. Кипяток для этой модели применять нельзя. Производитель описывает формование и проверку посадки, а также разрешает повторную подгонку."
+  },
+  {
+    "id": "sisu-3d-braces",
+    "scope": "sisu-3d",
+    "title": "SISU 3D и ортодонтические брекеты",
+    "source": "https://www.sisuguard.com/fitting/3d/braces/",
+    "text": "По инструкции SISU подгонку при брекетах выполняет стоматолог или ортодонт. Совместимость зависит от конкретной модели и размера. Сверяйте название и размер по инструкции для брекетов."
+  },
+  {
+    "id": "sisu-care",
+    "scope": "sisu-care",
+    "title": "Очистка и хранение кап SISU",
+    "source": "https://help.sisuguard.com/article/24-how-do-i-clean-and-store-my-sisu",
+    "text": "Производитель описывает очистку и хранение капы. SISU нельзя мыть в посудомоечной машине или подвергать сильному нагреву. Используйте инструкцию бренда по уходу."
+  },
+  {
+    "id": "shock-doctor-gel-max",
+    "scope": "shock-doctor-gel-max",
+    "title": "Подгонка капы Shock Doctor Gel Max Flavor Fusion",
+    "source": "https://www.shockdoctor.com/collections/gifts-25-under/products/gel-max-flavored-mouthguard?bvstate=pg%3A2%2Fct%3Ar",
+    "text": "Инструкция Shock Doctor для Gel Max Flavor Fusion задаёт время ожидания после снятия воды с нагрева, выдержку капы в воде и шаги охлаждения. Эта модель несовместима с брекетами."
+  },
+  {
+    "id": "mouthguard-guide",
+    "scope": "mouthguard-guide",
+    "title": "Как выбрать спортивную капу и найти инструкцию",
+    "source": "https://hard-pro.ru/kak-vyibrat-i-podgotovit-svarit-kapu-dlya-boksa-i-edinoborstv.html",
+    "text": "В каталоге встречаются разные виды кап, в том числе одночелюстные и двухчелюстные. Для подгонки сначала установите точную модель и тип капы. Режим нагрева и время выдержки сверяйте с указаниями производителя."
+  },
+  {
+    "id": "itf-equipment",
+    "scope": "itf",
+    "title": "Одобренная экипировка и добоки для стартов ITF",
+    "source": "https://itftkd.sport/wp-content/uploads/2026/01/Official-ITF-Rules-of-Competition-Version-2026-1.pdf",
+    "text": "Правила ITF версии 2026-1 относятся к чемпионатам мира и кубкам мира этой федерации. Для добока описаны требования к модели и поставщику, отдельно перечислена защитная экипировка. Допуск конкретного артикула проверяют по актуальному положению нужного старта."
+  },
+  {
+    "id": "wt-rename",
+    "scope": "wt",
+    "title": "World Taekwondo и прежнее сокращение WTF",
+    "source": "https://www.worldtaekwondo.org/wp-content/uploads/2019/06/2018-2019_Annual_Report.pdf",
+    "text": "World Taekwondo Federation сократила название до World Taekwondo. Сокращения ВТФ и WTF встречаются в старых каталогах. WT обозначает нынешнее название федерации."
+  },
+  {
+    "id": "wt-poomsae",
+    "scope": "wt",
+    "title": "WT Poomsae: отдельный регламент дисциплины",
+    "source": "https://www.worldtaekwondo.org/att_file/documents/Poomsae%20Competition%20Rules%20and%20Interpretation%20%28In%20force%20as%20of%20September%2030%202024%29.pdf",
+    "text": "Архивная редакция правил WT Poomsae от 30 сентября 2024 года относится к пхумсэ. Чтобы подтвердить одежду для предстоящего старта, проверьте актуальную редакцию и положение соревнования."
+  },
+  {
+    "id": "wt-kyorugi",
+    "scope": "wt",
+    "title": "WT Kyorugi: экипировка для соревнований по кёруги",
+    "source": "https://www.worldtaekwondo.org/att_file/documents/WT%20Competition%20Rules%20and%20Interpretation_September%201%2C%202023.pdf",
+    "text": "Архивная редакция правил WT для кёруги выделяет требования к форме и защитному снаряжению участников. Для участия в новом турнире нужны его положение и актуальные документы организатора."
+  },
+  {
+    "id": "sasung-white-belt",
+    "scope": "sasung-swb1002",
+    "title": "Добок Sasung ITF White Belt, SWB1002",
+    "source": "https://simf.hard-pro.ru/kimono%28dobok%29-dlya-txekvondo-sasung-itf-white-belt.html",
+    "text": "Код карточки 4161, артикул SWB1002. В комплекте куртка, брюки и белый пояс. Куртка застёгивается на липучку. В карточке указан поликоттон 200 г/м². Доли волокон не приведены."
+  },
+  {
+    "id": "ju-101",
+    "scope": "ju-101",
+    "title": "Кимоно для дзюдо HARD-PRO JU-101",
+    "source": "https://hard-pro.ru/kimono-dlya-dzyudo-hard-pro-ju-101.html",
+    "text": "Карточка указывает 100% хлопок и плотность куртки 550 г/м². В комплект входят куртка и брюки. Пояс приобретается отдельно."
+  },
+  {
+    "id": "green-hill-olimpic",
+    "scope": "green-hill-olimpic",
+    "title": "Кимоно для дзюдо Green Hill Olimpic",
+    "source": "https://simf.hard-pro.ru/kimono-dlya-dzyudo-green-hill-olympic.html",
+    "text": "Карточка указывает состав 100% хлопок, плотность 950 г/м² и двойные швы на плечах, рукавах и груди. Размеры воротника приводятся отдельными параметрами."
+  },
+  {
+    "id": "black-style-101",
+    "scope": "black-style-101",
+    "title": "Боксёрские перчатки HARD-PRO Black-Style-101",
+    "source": "https://hard-pro.ru/bokserskie-perchatki-hard-pro-black-style-101.html",
+    "text": "Карточка боксёрских перчаток Black-Style-101 использует унции (oz) для обозначения веса. Наличие нужной расцветки и веса проверяется по выбранному варианту в каталоге."
+  },
+  {
+    "id": "ibjjf-uniform",
+    "scope": "ibjjf",
+    "title": "IBJJF: форма для Gi и No-Gi",
+    "source": "https://ibjjf.com/uniform",
+    "text": "IBJJF публикует отдельные требования к форме для Gi и No-Gi. Для допуска нужно сверить экипировку с дисциплиной, актуальными правилами организации и условиями конкретного старта."
+  }
+]
