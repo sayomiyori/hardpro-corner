@@ -10,6 +10,12 @@
 # /docs/*
 # !/docs/overview.md
 
+# Публичное описание и патч менеджерского поиска
+!/docs/
+/docs/*
+!/docs/manager-dialog.md
+!/docs/manager-dialog.patch
+
 # Секреты, настройки окружения и файлы аутентификации
 .env
 .env.*
