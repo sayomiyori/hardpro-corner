@@ -10,6 +10,18 @@
 # /docs/*
 # !/docs/overview.md
 
+# Пилот поиска по публичным карточкам и инструкциям
+!/knowledge-pilot/
+/knowledge-pilot/*
+!/knowledge-pilot/cases.json
+!/knowledge-pilot/guides.json
+!/knowledge-pilot/requirements.txt
+!/knowledge-pilot/retrieval.py
+!/knowledge-pilot/test_retrieval.py
+!/docs/
+/docs/*
+!/docs/knowledge-retrieval-pilot.md
+
 # Секреты, настройки окружения и файлы аутентификации
 .env
 .env.*
