@@ -1,0 +1,46 @@
+# Фото, видео и код на двух RTX 3090
+
+Подбор от 20 ноября 2026 года. На сервере две RTX 3090 по 24 ГиБ и 503 ГиБ доступной ОС оперативной памяти. Palit обслуживает Qwen3-14B-AWQ через vLLM, а ASUS используется для ComfyUI и экспериментальных моделей кода. Большие задачи запускаются на ASUS по очереди. Прямой обмен CUDA между картами в проверенной конфигурации недоступен, поэтому при проектировании ориентируемся на 24 ГиБ одной карты.
+
+## Что выбрали
+
+| Задача | Модель | Почему подходит |
+| --- | --- | --- |
+| Фотореалистичное изображение из текста | Z-Image Turbo 6B, BF16 | Модель на девять шагов. Авторы заявляют работу в пределах 16 ГБ VRAM. Apache 2.0. [Карточка Tongyi](https://huggingface.co/Tongyi-MAI/Z-Image-Turbo) |
+| Генерация и редактирование по референсу | FLUX.2 Klein 4B, BF16 | Поддерживает текст, редактирование и несколько исходных изображений. BFL указывает около 13 ГБ VRAM для Klein 4B. Apache 2.0. [Документация BFL](https://help.bfl.ai/articles/6122710168-which-flux-2-model-should-i-choose) · [Шаблоны и веса Comfy-Org](https://huggingface.co/Comfy-Org/Flux-2-Klein-4B) |
+| Ролик из фото или текста | Wan 2.2 TI2V-5B, FP16 | Универсальный чекпойнт со штатными узлами ComfyUI. Авторы заявляют поддержку 720p при 24 кадрах в секунду и запуск на GPU с 24 ГБ при выгрузке в ОЗУ. Apache 2.0. [Репозиторий Wan](https://github.com/Wan-Video/Wan2.2) · [Веса Comfy-Org](https://huggingface.co/Comfy-Org/Wan_2.2_ComfyUI_Repackaged) |
+| Общие задачи разработки | Qwen3.8-27B, Unsloth GGUF UD-Q5_K_M | 19,87 ГБ на диске. Для нашего пилота запуск предусмотрен на одной 3090 с контекстом 16 384 токена. Qwen сообщает 73,0 на Terminal-Bench 2.1 через Terminus и 42,2 на DeepSWE 1.1. Это результаты авторов для исходной модели. [Карточка Qwen](https://huggingface.co/Qwen/Qwen3.8-27B) · [Квант Unsloth](https://huggingface.co/unsloth/Qwen3.8-27B-GGUF) |
+| Сравнение версии со сниженными отказами | Huihui-Qwen3.8-27B-abliterated GGUF Q5_K | 19,54 ГБ на диске. Производная от того же Qwen3.8-27B. Вызывается отдельным именем через тот же движок. Квантизация тоже отличается, поэтому сравнение охватывает обе разницы. [Карточка Huihui](https://huggingface.co/huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF) |
+
+### Что сравнили
+
+- В ноябрьском [рейтинге изображений Artificial Analysis](https://artificialanalysis.ai/image/leaderboard/text-to-image/open-weights) лидируют H3-Image, Qwen-Image-2.1 и FLUX 3 Image Klein. У H3-Image и Qwen-Image-2.1 собственные лицензионные условия. Для коммерческого локального применения FLUX 3 Image Klein BFL указывает порог годовой выручки в $5 млн. Пара Z-Image Turbo и FLUX.2 Klein 4B даёт подходящие режимы с Apache 2.0. [H3-Image](https://huggingface.co/MiniMaxAI/MiniMax-H3-Image) · [Qwen-Image-2.1](https://huggingface.co/Qwen/Qwen-Image-2.1) · [Условия FLUX 3 Image Klein](https://bfl.ai/blog/flux-3-image-klein).
+- MiniMax H3 лидирует среди открытых весов в [рейтинге I2V со звуком](https://artificialanalysis.ai/video/leaderboard/image-to-video/open-weights). Для 24 ГБ в руководстве по интеграции предусмотрен отдельный путь с компактным DiT и энкодером. LTX-2.5 умеет генерировать звук и видео совместно и предлагает INT8 для ComfyUI, при этом её условия коммерческого использования зависят от выручки. Wan 2.2 5B выбран как нативный поток на одной 3090 с понятной лицензией и поддержкой изображения на входе. [Интеграция H3](https://github.com/MiniMax-AI/awesome-minimax-h3-integration/blob/main/docs/run-h3-locally.md) · [Карточка LTX-2.5](https://huggingface.co/Lightricks/LTX-2.5).
+- Для кода рассмотрели Devstral Small 2 24B и Qwen3-Coder-Next 80B. Первый остаётся кандидатом для сравнения агентных задач. Второй предъявляет более высокие требования к памяти. У Qwen3.8-27B есть готовые конверсии базовой и изменённой версии, что позволяет прогонять одинаковые задачи на одном оборудовании. [Карточка Devstral](https://huggingface.co/mistralai/Devstral-Small-2-24B-Instruct-2512) · [Карточка Qwen3-Coder-Next](https://huggingface.co/Qwen/Qwen3-Coder-Next).
+
+## Установка и запуск
+
+ComfyUI, его окружение, веса, входные файлы и результат лежат на ADATA в `/srv/models/hard-pro-content/comfyui`. Стандартные папки весов ComfyUI находятся в `app/models`. GGUF для кода лежат в `/srv/models/weights/coding`. При скачивании файлы получают суффикс `.part`. После проверки размера и SHA-256 из Hugging Face они переименовываются в окончательные. Веса хранятся на SSD, вычисления идут в видеопамяти GPU. ComfyUI и llama.cpp могут использовать ОЗУ для выгрузки.
+
+Два браузерных интерфейса слушают loopback Ubuntu. Для доступа с рабочего компьютера используются локальные SSH-пробросы. ComfyUI работает с локальными моделями и штатными узлами. llama.cpp обслуживает OpenAI-совместимый API `/v1`, различает модели по имени GGUF и держит загруженной одну модель за раз.
+
+Версии движков для пилота — ComfyUI v0.46.0 и llama.cpp b12375. Для отдельного окружения ComfyUI выбраны Python 3.12 и официальные колёса PyTorch 2.9.1 для CUDA 12.8. Окружение создаёт uv 0.13.9. Лицензии и ревизии артефактов фиксируются по upstream. [Релиз ComfyUI](https://github.com/Comfy-Org/ComfyUI/releases/tag/v0.46.0) · [Установка llama.cpp](https://llama.app/docs/installation).
+
+| Программа | Служба `systemctl --user` | Порт на Ubuntu |
+| --- | --- | --- |
+| ComfyUI | `hardpro-comfyui.service` | `127.0.0.1:8188` |
+| llama.cpp | `hardpro-coding.service` | `127.0.0.1:8081` |
+
+Для входа на рабочем компьютере используйте ваш уже настроенный SSH-ключ. Пример проброса обоих портов из одного окна терминала:
+
+```text
+ssh -N -L 18188:127.0.0.1:8188 -L 18081:127.0.0.1:8081 <ssh-пользователь>@<ubuntu>
+```
+
+В браузере ComfyUI открывается на `http://127.0.0.1:18188/`, интерфейс кода — на `http://127.0.0.1:18081/`. Для подключения редактора используйте базовый адрес `http://127.0.0.1:18081/v1` и имя модели из `GET /v1/models`.
+
+При переходе между задачами дождитесь конца текущего задания и выгрузите его модели из памяти. В ComfyUI для этого можно вызвать `POST /free` с `{"unload_models":true,"free_memory":true}`. В llama.cpp можно остановить службу `hardpro-coding`, если GPU нужен сразу. В обычном режиме дочерний процесс освобождает память после простоя.
+
+## Состояние проверки
+
+Загрузка весов началась 20 ноября. Ethernet на сервере работает на 100 Мбит/с. Теоретический предел — 12,5 МБ/с, фактическая скорость зависит от CDN и параллельных загрузок.
