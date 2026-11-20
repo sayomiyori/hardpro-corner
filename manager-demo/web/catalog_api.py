@@ -27,7 +27,7 @@ vllm_key = next(line.partition("=")[2].strip() for line in cli["KEY_FILE"].read_
 
 
 from site_catalog import read_store
-from manager_knowledge import BLINCHIKI, competition_answer, expand_terms
+from manager_knowledge import competition_answer, definition_answer, merge_clarification, resolve_context
 from onec_live import CatalogNotReady, configured_reader
 
 models = {"manager": "hardpro-manager", "buyer": "hardpro-shop"}
@@ -77,11 +77,16 @@ def parse(system, question):
 
 def reply(role, turns):
     if role == "manager":
+        turns = merge_clarification(turns)
+        definition = definition_answer(turns[-1])
+        if definition:
+            return definition.replace("\n", "  \n")
+        _, clarification = resolve_context(turns[-1])
+        if clarification:
+            return clarification
         competition = competition_answer(turns[-1], turns[:-1])
         if competition:
             return competition.replace("\n", "  \n")
-        if BLINCHIKI.search(expand_terms(turns[-1])):
-            return "Под «блинчиками» имеете в виду снарядные перчатки или диски для штанги?"
     if role == "buyer":
         source, separator, _ = turns[-1].partition("\n")
         parts = source.split(":")
