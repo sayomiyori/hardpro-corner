@@ -6,6 +6,7 @@ import os
 import re
 import threading
 import ssl
+from dataclasses import dataclass
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
@@ -15,7 +16,7 @@ from tempfile import NamedTemporaryFile
 from urllib.parse import urlencode
 from uuid import UUID
 
-from archive_catalog import COLORS, SIZES, Catalog
+from archive_catalog import COLORS, SIZES, Catalog, words
 from manager_knowledge import expand_terms
 
 
@@ -33,6 +34,142 @@ DETAIL_REQUEST = re.compile(r"\b(?:описани\w*|материал\w*|сос�
 GROUP_REFERENCE = re.compile(r"\b(?:этих|эти|их|все цвета|все варианты|кажд\w*)\b")
 ALL_STORES = re.compile(r"\b(?:обоих|обоим|оба|всех|все|двух|двум)\s+(?:склад\w*|магазин\w*)\b")
 
+
+CATEGORY_FORMS = {
+    "рашгарды": r"рашгард(?:ы|ов|а|у|е|ом)?",
+    "капы": r"кап(?:а|ы|у|ой|ами|ах)?",
+    "бинты": r"бинт(?:ы|ов|а|у|ами)?",
+    "шлемы": r"шлем(?:ы|а|ов|у|ом|ами)?",
+}
+DENTAL_PROTECTION = re.compile(r"\bзащит[ау]\s+(?:для\s+)?зубов\b")
+NEW_CATEGORY = re.compile(r"\b(?:какие|покажи\w*|подскажи\w*|найди\w*|нужн\w*|ищу)\b")
+OTHER_CITY = re.compile(r"\bв друг\w* город\w*\b")
+CATEGORY = re.compile(r"\b(?:" + "|".join(CATEGORY_FORMS.values()) + r")\b")
+PRODUCT_CATEGORIES = {
+    key: re.compile(r"^(?:" + forms + r")\b") for key, forms in CATEGORY_FORMS.items()
+}
+BRANDS = {
+    "Venum": r"venum|венум",
+    "BoyBo": r"boy[\s-]?bo|бой[\s-]?бо",
+    "HARD-PRO": r"hard[\s-]?pro|хард[\s-]?про",
+}
+BRAND_FORMS = {
+    brand: re.compile(r"(?<![\w-])(?:(не|кроме|без)\s+)?(?:" + pattern + r")(?![\w-])")
+    for brand, pattern in BRANDS.items()
+}
+BOXING = re.compile(r"\b(?:бокс(?:а|у|ом|е)?|боксерск\w*)\b")
+TRAINING = re.compile(r"\bтренировочн\w*\b")
+BROWSE_WORDS = re.compile(
+    r"\b(?:какие-то|какие|какой|какая|подскажи\w*|покажи\w*|пожалуйста|найди\w*|нужн\w*|ищу|есть|"
+    r"наличи\w*|остат\w*|свободно|сейчас|сегодня|друг\w*|какие-то|именно|размер\w*|"
+    r"цвет\w*|у|нас|еще|в|на|по|для|а|если|и|город\w*|магазин\w*|склад\w*|обоих|оба|всех)\b"
+)
+TAEKWONDO_USE = re.compile(r"\bподойд\w*\b.*\bтх[эе]кв[оа]ндо\b|\bтх[эе]кв[оа]ндо\b.*\bподойд\w*\b")
+TAEKWONDO_FEDERATIONS = {
+    "WT": (r"\b(?:wtf?|втф?)\b",
+           "https://www.worldtaekwondo.org/att_file/documents/"
+           "WT%20Competition%20Rules%20and%20Interpretation%20%28September%2030%2C%202024%29.pdf"),
+    "ITF": (r"\b(?:itf|итф|мфт)\b", "https://itftkd.sport/rules/"),
+}
+BROWSE_LIMIT = 24
+STOCK_ITEMS = 6
+HYPHENS = str.maketrans('‐‑–', '---')
+
+
+@dataclass(frozen=True)
+class Browse:
+    category: str
+    brand: str = ""
+    excluded_brand: str = ""
+    boxing: bool = False
+    training: bool = False
+
+    @property
+    def label(self):
+        qualifiers = [self.category]
+        if self.boxing:
+            qualifiers.append("для бокса")
+        if self.training:
+            qualifiers.append("тренировочные")
+        if self.brand:
+            qualifiers.append(self.brand)
+        if self.excluded_brand:
+            qualifiers.append(f"кроме {self.excluded_brand}")
+        return " ".join(qualifiers)
+
+    def includes(self, title):
+        if self.brand and not BRAND_FORMS[self.brand].search(title):
+            return False
+        if self.excluded_brand and BRAND_FORMS[self.excluded_brand].search(title):
+            return False
+        return (not self.boxing or BOXING.search(title)) and (not self.training or TRAINING.search(title))
+
+
+def category_in(text):
+    found = set(CATEGORY.findall(text))
+    categories = [key for key, forms in PRODUCT_CATEGORIES.items() if any(forms.fullmatch(word) for word in found)]
+    return categories[0] if len(categories) == 1 else None
+
+
+def browse_query(query, category, stores, previous, criteria):
+    if category is None and (CATEGORY.search(query) or previous is None or not query.startswith("а ")):
+        return None
+    brands = [(brand, found) for brand, expr in BRAND_FORMS.items() for found in expr.finditer(query)]
+    if len(brands) > 1:
+        return None
+    brand, excluded = "", ""
+    if brands:
+        name, match = brands[0]
+        if match[1]:
+            excluded = name
+        else:
+            brand = name
+
+    city_matches = [
+        (city, re.compile(r"\b" + re.escape(city.casefold().replace("ё", "е").rstrip("ь")) + r"\w*\b"))
+        for city in stores
+    ]
+    cities = [city for city, pattern in city_matches if pattern.search(query)]
+    attrs = [match[0] for pattern in (COLORS, SIZES) for match in pattern.finditer(query)]
+    rest = query
+    for pattern in (CATEGORY, BOXING, TRAINING, COLORS, SIZES, *BRAND_FORMS.values(),
+                    *(pattern for _, pattern in city_matches), BROWSE_WORDS):
+        rest = pattern.sub(" ", rest)
+    if re.search(r"\w", rest) or (not category and not (brands or cities or attrs
+                                                         or ALL_STORES.search(query) or OTHER_CITY.search(query))):
+        return None
+    continuation = previous and query.startswith('а ') and category in (None, previous.category)
+    if continuation:
+        plan = Browse(previous.category, brand if brands else previous.brand,
+                      excluded if brands else previous.excluded_brand,
+                      previous.boxing or (previous.category == 'шлемы' and bool(BOXING.search(query))),
+                      previous.training or bool(TRAINING.search(query)))
+        all_stores = ALL_STORES.search(query) or OTHER_CITY.search(query) or len(cities) > 1
+        warehouse = '' if all_stores else (cities[0] if cities else criteria['warehouse'])
+        variant = " ".join(attrs) if attrs else criteria["variant"]
+    else:
+        plan = Browse(category, brand, excluded, category == "шлемы" and bool(BOXING.search(query)),
+                      bool(TRAINING.search(query)))
+        warehouse = cities[0] if len(cities) == 1 else ""
+        variant = " ".join(attrs)
+    product = criteria["product"] if continuation and not category and not brands else plan.category
+    return plan, dict(product=product or plan.category, variant=variant, warehouse=warehouse)
+
+
+def taekwondo_answer(query, boxing):
+    prefix = "В подборке были шлемы для бокса. " if boxing else ""
+    federations = [name for name, (pattern, _) in TAEKWONDO_FEDERATIONS.items() if re.search(pattern, query)]
+    federation = federations[0] if len(federations) == 1 else None
+    if federation and re.search(r"\b(?:соревновани\w*|турнир\w*|старт\w*)\b", query):
+        _, source = TAEKWONDO_FEDERATIONS[federation]
+        return (prefix + f"Для соревнований {federation} нужно сверить актуальное положение старта "
+                f"и маркировку конкретного шлема. [Документы федерации {federation}]({source})\n"
+                "Допуск этих моделей пока не подтверждён. Какую модель и турнир проверить?")
+    if federation and re.search(r"\bтренировк\w*\b", query):
+        return (prefix + f"Для тренировки {federation} сверим назначение конкретной модели "
+                "с требованиями тренера. Как называется шлем?")
+    return (prefix + "По названиям моделей пригодность для тхэквондо подтвердить не могу. "
+            "Подскажите, вам нужен шлем для WT или ITF, на тренировку или на соревнования?")
 
 def budget_value(query):
     found = BUDGET.search(query)
@@ -248,6 +385,14 @@ class LiveCatalog(Catalog):
         self.reader = reader
         self.selected = None
         self.snapshot_stamp = snapshot_stamp
+        self.browse = None
+        self.browse_products = {key: [] for key in PRODUCT_CATEGORIES}
+        for code, row in self.products.items():
+            title = row['товар'].strip().casefold().replace('ё', 'е').translate(HYPHENS)
+            for category, pattern in PRODUCT_CATEGORIES.items():
+                if pattern.match(title):
+                    self.browse_products[category].append((code, title))
+                    break
 
     def with_snapshot_date(self, text):
         if self.snapshot_stamp is None:
@@ -259,10 +404,104 @@ class LiveCatalog(Catalog):
         self.selected = ([idx], city)
         return ""
 
+    def matching_rows(self, product, variant):
+        browse = self.browse
+        if browse is None or product != browse.category:
+            return super().matching_rows(product, variant)
+        codes = [code for code, title in self.browse_products[browse.category] if browse.includes(title)]
+        attrs = words(variant, variant=True)
+        matches = [idx for code in codes for idx in self.by_product[code] if attrs <= self.variant_words[idx]]
+        return codes, matches
+
+    def menu(self):
+        if not self.options:
+            return super().menu()
+        if self.options[0][0] == "variant":
+            end = min(self.offset + 8, len(self.options))
+            row = self.rows[self.options[0][1]]
+            lines = [f"У модели «{row['товар']}» есть такие варианты:"]
+            for i in range(self.offset, end):
+                lines.append(f"№{i + 1} {self.label(self.options[i][1])}")
+            if end < len(self.options):
+                lines.append("Напишите «ещё», чтобы посмотреть продолжение.")
+            lines.append("Какой вариант проверить по наличию?")
+            return "\n".join(lines)
+        total = len(self.options)
+        end = min(self.offset + 8, total)
+        intro = f"Вот что нашёл в каталоге по запросу «{self.browse.label}»." if self.browse else "Вот что нашёл в каталоге."
+        lines = [intro]
+        if total > 8:
+            lines.append(f"Показываю модели {self.offset + 1}–{end} из {total}.")
+        for i in range(self.offset, end):
+            _, code = self.options[i]
+            lines.append(f"№{i + 1} {self.products[code]['товар']}")
+        lines.append("Назовите модель, размер или город — проверю наличие.")
+        if end < total:
+            lines.append("Напишите «ещё», чтобы посмотреть следующие модели.")
+        return "\n".join(lines)
+
+    def browse_stock(self, matches, city):
+        products = list(dict.fromkeys(self.rows[idx]["product"] for idx in matches))
+        if not products:
+            return f"По запросу «{self.browse.label}» подходящих вариантов в каталоге нет."
+        stores = [city] if city else self.stores
+        checked = products[:BROWSE_LIMIT]
+        checked_set = set(checked)
+        try:
+            stamp, stock, _ = self.reader.offers(checked)
+        except SOURCE_ERRORS:
+            return f"По запросу «{self.browse.label}» есть совпадения в каталоге. 1С пока не подтвердила остатки."
+
+        found = {}
+        every_balance_known = True
+        for idx in matches:
+            row = self.rows[idx]
+            if row["product"] not in checked_set:
+                continue
+            amounts = stock.get((row["product"], row["id"]), {})
+            available = [name for name in stores if amounts.get(self.reader.stores[name], 0) > 0]
+            every_balance_known &= all(self.reader.stores[name] in amounts for name in stores)
+            if available:
+                item = f"{self.label(idx)}: {', '.join(available)}"
+                found.setdefault((row["product"], row["товар"]), []).append(item)
+
+        coverage = ""
+        if len(products) > len(checked):
+            coverage = f"\nПроверил первые {len(checked)} из {len(products)} моделей."
+        if not found:
+            if coverage or not every_balance_known:
+                return ("Среди проверенных вариантов свободный остаток не подтверждён."
+                        f"{coverage}\nНазовите модель или размер — проверю точнее.")
+            return f"Свободных остатков по запросу «{self.browse.label}» сейчас нет в 1С."
+        lines = [f"Вот что сейчас есть в наличии по запросу «{self.browse.label}»:"]
+        for (_, title), variants in list(found.items())[:STOCK_ITEMS]:
+            suffix = f"; ещё вариантов: {len(variants) - 3}" if len(variants) > 3 else ""
+            lines.append(f"• {title} — {'; '.join(variants[:3])}{suffix}.")
+        if len(found) > STOCK_ITEMS:
+            lines.append(f"Показал {STOCK_ITEMS} из {len(found)} моделей с подтверждённым остатком.")
+        lines.append(f"По данным 1С на {stamp:%H:%M:%S} МСК.{coverage}")
+        if not every_balance_known:
+            lines.append("Для части проверенных вариантов остаток неизвестен.")
+        lines.append("Какую модель или размер проверить подробнее?")
+        return "\n".join(lines)
+
     def answer(self, turns, parse):
         previous_budget = None
+        previous_availability = False
+        pending_taekwondo = False
+        final_stock = None
+        result = 'Скажите, какой товар подобрать.'
         for question in turns:
-            query = expand_terms(question)
+            query = DENTAL_PROTECTION.sub('капы', expand_terms(question).translate(HYPHENS))
+            final_stock = None
+            if self.browse and self.browse.category == 'шлемы' and (
+                    TAEKWONDO_USE.search(query) or (pending_taekwondo and not category_in(query)
+                    and any(re.search(pattern, query) for pattern, _ in TAEKWONDO_FEDERATIONS.values()))):
+                result = taekwondo_answer(query, self.browse.boxing)
+                pending_taekwondo = True
+                self.selected = None
+                continue
+            pending_taekwondo = False
             budget = budget_value(query)
             previous_product = self.criteria["product"]
             want_stock = bool(STOCK_REQUEST.search(query))
@@ -272,6 +511,30 @@ class LiveCatalog(Catalog):
             previous = self.selected
             self.selected = None
             options = [key for kind, key in self.options if kind == "variant"]
+            category = category_in(query)
+            browse = None if budget is not None or want_price or want_details else browse_query(
+                query, category, self.stores, self.browse, self.criteria
+            )
+            if browse:
+                plan, criteria = browse
+                same_search = (self.browse and self.browse.category == plan.category
+                               and (query.startswith('а ') or re.search(r'\bименно\b', query)))
+                want_stock = want_stock or (same_search and previous_availability)
+                self.browse = plan
+                previous_availability = want_stock
+                if want_stock:
+                    self.criteria, self.options = criteria, []
+                    _, matches = self.matching_rows(criteria['product'], criteria['variant'])
+                    final_stock = (matches, criteria['warehouse'])
+                else:
+                    result = self.search(criteria)
+                previous_budget = None
+                continue
+            previous_availability = False
+            if CATEGORY.search(query) and (NEW_CATEGORY.search(query) or not query.startswith('а ')):
+                self.browse = None
+                self.criteria = dict(product='', variant='', warehouse='')
+                self.options = []
             is_reference = GROUP_REFERENCE.search(query) and (want_stock or want_price) and not (
                 COLORS.search(query) or SIZES.search(query)
                 or any(city.casefold().rstrip("ь") in query for city in self.stores)
@@ -293,6 +556,8 @@ class LiveCatalog(Catalog):
                 _, matches = self.matching_rows(self.criteria["product"], self.criteria["variant"])
                 city = self.selected[1] if self.selected else self.criteria["warehouse"]
                 self.selected = (matches, city) if matches else self.selected
+        if final_stock is not None:
+            return self.browse_stock(*final_stock)
         if self.selected is None:
             return self.with_snapshot_date(result.replace("в выгрузке", "в справочнике 1С"))
         indices, city = self.selected

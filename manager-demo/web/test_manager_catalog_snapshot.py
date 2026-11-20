@@ -56,7 +56,8 @@ class CatalogSnapshotTest(unittest.TestCase):
         restarted.load_snapshot()
         result = restarted.session().answer(["Кимоно дзюдо на рост 140 см"], parse_kimono)
         self.assertIn("Справочник 1С на", result)
-        self.assertIn("Найдено 2", result)
+        self.assertIn("№1 Кимоно дзюдо Alpha", result)
+        self.assertIn("№2 Кимоно дзюдо Beta", result)
         restarted.get.assert_not_called()
 
         result = restarted.session().answer(["Кимоно дзюдо на рост 140 см", "№1"], parse_kimono)
