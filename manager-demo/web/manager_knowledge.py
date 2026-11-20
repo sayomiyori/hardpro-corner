@@ -12,11 +12,12 @@ RULES_INTENT = re.compile(
     r"\b(?:федераци\w*|сертификат\w*|турнир\w*|соревновани\w*|регламент\w*|допуск\w*|"
     r"лицензи\w*|одобрен\w*|омологаци\w*|фбр|фдр|фкр|вфс|фсбр|wkf)\b"
 )
-BLINCHIKI = re.compile(r"\bблинчик(?:и|ов|ами)\b")
+DEFINITION_REQUEST = re.compile(r"\b(?:что (?:такое|значит|означает)|расшифруй\w*|как расшифровывается)\s+")
+HYPHENS = str.maketrans("‐‑–", "---")
 
 
 def normalized(text):
-    return text.casefold().replace("ё", "е")
+    return text.casefold().replace("ё", "е").translate(HYPHENS)
 
 
 @lru_cache(maxsize=1)
@@ -25,26 +26,107 @@ def knowledge():
 
 
 @lru_cache(maxsize=1)
+def terminology():
+    return json.loads(Path(__file__).with_name("combat-terminology.json").read_text(encoding="utf-8"))
+
+
+def whole_terms(terms):
+    alternatives = "|".join(map(re.escape, sorted({normalized(term) for term in terms}, key=lambda s: (-len(s), s))))
+    return re.compile(r"(?<![\w-])(?:" + alternatives + r")(?![\w-])")
+
+
+@lru_cache(maxsize=1)
 def glossary():
-    aliases = {normalized(alias): item["term"] for item in knowledge()["terms"] for alias in item["aliases"]}
-    patterns = sorted(aliases, key=len, reverse=True)
-    return re.compile(r"(?<!\w)(?:" + "|".join(map(re.escape, patterns)) + r")(?!\w)"), aliases
+    entries = knowledge()["terms"] + [term for group in terminology()["groups"] for term in group["terms"]
+                                    if term.get("search", True)]
+    aliases = {normalized(alias): item["term"] for item in entries for alias in item["aliases"]}
+    for item in entries:
+        term = normalized(item["term"])
+        if term in aliases:
+            aliases[term] = item["term"]
+    return whole_terms(aliases), aliases
+
+
+@lru_cache(maxsize=1)
+def context_patterns():
+    return [(item, whole_terms(item["aliases"]),
+             [(case, whole_terms(case["cues"])) for case in item["cases"]],
+             whole_terms(item["ignore"]) if item.get("ignore") else None)
+            for item in terminology()["ambiguities"]]
+
+
+def resolve_context(question):
+    query = normalized(question)
+    for item, pattern, cases, ignored in context_patterns():
+        probe = ignored.sub(lambda match: " " * len(match[0]), query) if ignored else query
+        occurrences = list(pattern.finditer(probe))
+        if not occurrences:
+            continue
+        matches = [case for case, cues in cases if cues.search(probe)]
+        if not matches or (len(matches) > 1 and not item.get("allow_combined", False)):
+            return query, item["question"]
+        if len(matches) == 1 and "replacement" in matches[0]:
+            for occurrence in reversed(occurrences):
+                start, end = occurrence.span()
+                query = query[:start] + matches[0]["replacement"] + query[end:]
+    return query, None
+
+
+def merge_clarification(turns):
+    if len(turns) < 2 or not resolve_context(turns[-2])[1]:
+        return turns
+    reply = normalized(turns[-1]).strip(" ?!.,")
+    reply = re.sub(r"^(?:для|на|по|в|это)\s+", "", reply)
+    previous = normalized(turns[-2])
+    for _, aliases, cases, _ in context_patterns():
+        if aliases.search(previous) and any(cues.fullmatch(reply) for _, cues in cases):
+            combined = f"{turns[-2]} {turns[-1]}"
+            if not resolve_context(combined)[1]:
+                return [*turns[:-2], combined]
+    return turns
 
 
 def expand_terms(question):
+    query, clarification = resolve_context(question)
+    if clarification:
+        return query
     pattern, aliases = glossary()
-    query = normalized(question)
-    if re.search(r"\b(?:бокс\w*|меш[ко]\w*|груш\w*|перчат\w*)\b", query):
-        query = BLINCHIKI.sub("снарядные перчатки", query)
-    elif re.search(r"\b(?:штанг\w*|гриф\w*|диск\w*)\b", query):
-        query = BLINCHIKI.sub("диски", query)
     return pattern.sub(lambda match: aliases[match[0]], query)
 
 
-def competition_answer(question, previous=()):
+def definition_answer(question):
     query = normalized(question)
-    if not RULES_INTENT.search(query):
+    request = DEFINITION_REQUEST.search(query)
+    if not request:
         return None
+    subject = query[request.end():].strip(" \t?!.«»\"")
+    if not subject:
+        return None
+    data = terminology()
+    results = []
+    disciplines = []
+    for group in data["groups"]:
+        if subject in {normalized(name) for name in [group["title"], *group["names"]]}:
+            disciplines.append((group, {"term": group["title"], "note": group["scope"]}))
+        for entry in group["terms"]:
+            names = {normalized(name) for name in [entry["term"], *entry["aliases"]]}
+            if subject in names:
+                results.append((group, entry))
+    lines = []
+    for group, entry in (results or disciplines)[:3]:
+        source = data["sources"][(entry.get("sources") or group["sources"])[0]]
+        heading = f"{group['title']}. {entry['term']}" if results else group["title"]
+        lines.append(f"{heading}. {entry['note']}\n[{source['title']}]({source['url']})")
+    return "\n\n".join(lines) or None
+
+
+def competition_answer(question, previous=()):
+    raw = normalized(question)
+    if not RULES_INTENT.search(raw):
+        return None
+    query, clarification = resolve_context(question)
+    if clarification:
+        return clarification
     rules = knowledge()["rules"]
     aliases = Counter(alias for rule in rules for alias in {frozenset(words(term)) for term in rule["aliases"]})
     for candidate in (query, *(normalized(text) for text in reversed(previous))):
