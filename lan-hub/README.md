@@ -80,7 +80,38 @@ TA_LABEL_MAP={"Qwen3.8-Flash-Next":"Qwen3.8 Flash Next"}
 TA_SKIP_TAIL=hardpro-agent
 ```
 
-## 6. Перенос Codex
+## 6. Переключатель моделей
+
+`models/profiles.json` — каталог профилей: какая модель, на каких GPU, на каком
+порту и с какими аргументами. Роли (`agent`, `chat`, `media`) — ярлык «кто сейчас
+обслуживает вход». Смена роли поднимает нужную модель на её картах и гасит
+профили, конфликтующие по GPU или порту (`policy.evict`).
+
+Два локальных движка запуска: `llamacpp` (llama.cpp `serve`: `-ngl`/`-c`/`--mmproj`,
+`--fit` для моделей крупнее одной карты, `--no-kv-offload`, если KV-кэш нужно
+держать в RAM ради больших контекстов) и `vllm` (`vllm serve`:
+`--served-model-name`, `--max-model-len`, `--gpu-memory-utilization`,
+`--api-key` из переменной `token_env`). Профили `external` каталог только
+опрашивает — их процессами он не управляет.
+
+Доска и агент дают то же самое по HTTP: `GET /api/models` плюс
+`POST /api/models/switch|launch|stop|restart|role|profile`. В карточке модели
+правятся карты, порт, контекст, слои на GPU (или утилизация VRAM для vLLM),
+флаги и автостарт; «перезапустить» применяет правки к живому процессу.
+Из терминала:
+
+```bash
+~/hardpro/bin/hp-model.py list
+~/hardpro/bin/hp-model.py switch agent <модель>
+~/hardpro/bin/hp-model.py check
+```
+
+Состояние процессов — `~/hardpro/models/state.json`, логи загрузки —
+`~/hardpro/logs/model-<имя>.log`. Перезапуск hub/agent не гасит поднятые модели
+(`KillMode=process`), автозапуск при загрузке сервера делает юнит `hardpro-models`
+(`hp-model.py autostart` по профилям с `"autostart": true`).
+
+## 7. Перенос Codex
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\migrate\codex-export.ps1 -SshHost llm-host
@@ -97,7 +128,7 @@ powershell -ExecutionPolicy Bypass -File .\migrate\codex-export.ps1 -SshHost llm
 ~/hardpro/bin/hp-search.py skills --grep wp
 ```
 
-## 7. Безопасность
+## 8. Безопасность
 
 - Наружу открыт один порт; внутренние сервисы слушают `127.0.0.1`.
 - Доска и агент закрыты HTTP Basic, пароль генерируется при установке.
@@ -106,7 +137,7 @@ powershell -ExecutionPolicy Bypass -File .\migrate\codex-export.ps1 -SshHost llm
 - TLS-сертификат самоподписанный и опционален: шлюз по умолчанию отдаёт http
   внутри сети, как и Open WebUI за ним.
 
-## 8. Ограничения
+## 9. Ограничения
 
 - Браузерная автоматизация не проверялась: бинарь Chromium качается с внешнего CDN,
   в закрытых сетях его нужно ставить отдельно (`apt install chromium-browser`).

@@ -67,12 +67,18 @@
     },
     "qwen3-14b-manager": {
       "label": "Qwen3 14B Manager (vLLM)",
-      "backend": "external",
-      "base": "http://127.0.0.1:8000",
-      "token_env": "VLLM_API_KEY",
+      "backend": "vllm",
       "gpus": [0],
+      "port": 8000,
+      "model_path": "/srv/models/weights/Qwen3-14B-AWQ",
+      "alias": "manager",
+      "token_env": "VLLM_API_KEY",
+      "n_ctx": 40960,
+      "gpu_util": 0.92,
       "vram_mib": 18000,
-      "note": "движок менеджера 1С: Qwen3-14B-AWQ, vLLM, GPU 0; живёт в юните hardpro-vllm, каталогом не запускается"
+      "autostart": true,
+      "args": ["--disable-log-requests"],
+      "note": "движок менеджера 1С: Qwen3-14B-AWQ, GPU 0; база знаний и RULES живут в onec-pilot и не зависят от движка"
     }
   }
 }
