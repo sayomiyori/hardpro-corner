@@ -35,6 +35,13 @@ class CatalogTest(unittest.TestCase):
         self.assertIn("Такого склада", self.query("01", "M", "Другой"))
         self.assertIn("Совпадений", self.query("несуществующая модель"))
 
+    def test_spoken_size_survives_weight_label_from_model(self):
+        catalog = Catalog({"склады": ["Центр"], "товары": [
+            record("03", "10 oz, Синий", "f", "6"), record("03", "12 oz, Синий", "g", "3")]})
+        question = "Перчатки Луна, синие, 10 oz. Сколько свободно?"
+        parsed = '{"product":"Перчатки Луна","variant":"цвет синий, вес 10 oz","warehouse":""}'
+        self.assertIn("свободно 6.", catalog.reply(question, lambda _: parsed))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -188,6 +188,8 @@ class Catalog:
         sizes.extend(re.findall(r"\b(?:размер[а-я]*|рост(?:ом|а)?)\s+(\d+(?:[.,]\d+)?)\b", phrase))
         if colors or sizes:
             variant = parsed["variant"].casefold().replace("ё", "е")
+            if sizes:
+                variant = re.sub(r"\bвес\b", " ", variant)
             product = parsed["product"]
             for pattern, anchors in ((COLORS, colors), (SIZES, sizes)):
                 if anchors:
