@@ -1,0 +1,10 @@
+{
+  "port": 8774,
+  "token": "FILL_RANDOM_HEX",
+  "mode": "write",
+  "database": "Srvr=\"192.168.1.195\";Ref=\"base\";",
+  "credentials": "E:\\Work\\Projects\\website\\1c_mcp_transfer\\config\\onec-work-credentials.secret",
+  "allow": ["Справочник.*", "Документ.*"],
+  "deny": ["Справочник.Пользователи", "Справочник.ВнешниеПользователи"],
+  "audit": "E:\\Work\\Tools\\onec-bridge\\audit.jsonl"
+}

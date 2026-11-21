@@ -1,6 +1,6 @@
 # onec-mcp
 
-MCP-сервер для 1С:Предприятие 8. Даёт агентам и моделям в llm-host чтение и запись базы
+MCP-сервер для 1С:Предприятие 8. Даёт агентам и моделям в hardpro-llm чтение и запись базы
 через стандартный интерфейс OData плюс проведение документов через HTTP-сервис 1С.
 
 Node 20+, ноль зависимостей: `node src/server.mjs` — и всё. Ни `npm install`, ни сборки.
@@ -39,8 +39,8 @@ Node 20+, ноль зависимостей: `node src/server.mjs` — и всё
 ## Установка
 
 ```bash
-scp -r onec-mcp llm-host:~/hardpro/util/
-ssh llm-host 'node --version && node ~/hardpro/util/onec-mcp/smoke.mjs'
+scp -r onec-mcp hardpro-llm:~/hardpro/util/
+ssh hardpro-llm 'node --version && node ~/hardpro/util/onec-mcp/smoke.mjs'
 ```
 
 Самопроверка без живой 1С — `node test-integration.mjs`: поднимает mock-OData на localhost,

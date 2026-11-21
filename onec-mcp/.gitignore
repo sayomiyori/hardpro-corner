@@ -1,0 +1,7 @@
+node_modules/
+*.log
+.env
+audit.jsonl
+link.err.log
+link.out.log
+debug.log
