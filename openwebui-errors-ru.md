@@ -1,6 +1,6 @@
-# Open WebUI + hardpro-llm — разбор ошибок по слоям
+# Open WebUI + llm-host — разбор ошибок по слоям
 
-Документ отвечает на три вопроса по каждой ошибке: **что произошло**, **где слабое место**, **чем проверить**. Ссылки на файлы и переменные — по реальному стеку: браузер → Open WebUI (aiohttp) → прокси (nginx / Cloudflare / Traefik) → бэкенд (hardpro-llm / vLLM / llama.cpp / Ollama).
+Документ отвечает на три вопроса по каждой ошибке: **что произошло**, **где слабое место**, **чем проверить**. Ссылки на файлы и переменные — по реальному стеку: браузер → Open WebUI (aiohttp) → прокси (nginx / Cloudflare / Traefik) → бэкенд (llm-host / vLLM / llama.cpp / Ollama).
 
 ---
 
@@ -32,7 +32,7 @@
   ```bash
   curl -N -v --max-time 900 -H "Authorization: Bearer $KEY" \
     -H "Content-Type: application/json" \
-    -d '{"model":"hardpro-llm","messages":[{"role":"user","content":"3000 слов"}],"stream":true}' \
+    -d '{"model":"llm-host","messages":[{"role":"user","content":"3000 слов"}],"stream":true}' \
     http://<backend>:8080/v1/chat/completions
   ```
   Рвётся здесь → слой 3/4. Цело здесь, рвётся в браузере → слой 2.
@@ -133,10 +133,10 @@ docker logs -f --tail 200 openwebui 2>&1 | grep -Ei 'error|Traceback|aiohttp|Tra
 docker logs -f --tail 200 nginx 2>&1 | grep -E ' 50[0-4] | 499 '
 
 # бэкенд — тут видно OOM, контекст, слоты
-docker logs -f --tail 200 hardpro-llm
+docker logs -f --tail 200 llm-host
 
 # смерть по памяти
-docker inspect --format '{{.State.OOMKilled}} {{.State.ExitCode}} {{.RestartCount}}' hardpro-llm
+docker inspect --format '{{.State.OOMKilled}} {{.State.ExitCode}} {{.RestartCount}}' llm-host
 ```
 
 ---
@@ -162,7 +162,7 @@ docker inspect --format '{{.State.OOMKilled}} {{.State.ExitCode}} {{.RestartCoun
 
 ```nginx
 location / {
-    proxy_pass http://hardpro-llm:8080;
+    proxy_pass http://llm-host:8080;
     proxy_http_version 1.1;
     proxy_set_header Connection "";
     proxy_buffering off;

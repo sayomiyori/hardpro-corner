@@ -431,7 +431,7 @@ def lan_ip() -> str:
     import socket
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.connect(("192.168.88.202", 80))
+            sock.connect(("192.0.2.10", 80))
             return sock.getsockname()[0]
     except OSError:
         return "127.0.0.1"
@@ -474,7 +474,7 @@ def proxy_script(stdio: list[dict], host: str, base_port: int = 8100) -> tuple[s
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Codex context -> Open WebUI")
-    parser.add_argument("--api", default="http://192.168.88.202:8775")
+    parser.add_argument("--api", default="http://192.0.2.10:8775")
     parser.add_argument("--token", default=os.environ.get("OPENWEBUI_TOKEN"))
     parser.add_argument("--apply", action="store_true", help="писать на сервер (иначе только план)")
     parser.add_argument("--codex-home", default=str(DEFAULT_CODEX_HOME))
