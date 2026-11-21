@@ -18,6 +18,19 @@
 !/systemd/hardpro-vllm.service.d/
 !/systemd/hardpro-vllm.service.d/*.conf
 
+# Код проекта: шлюз, доска, агент, traceproxy, MCP 1С, обвязка Open WebUI
+!/hardpro-hub/
+!/onec-mcp/
+!/openwebui-coding/
+!/codex2owui.py
+!/codex2owui_context.py
+!/openwebui_error_explainer.py
+!/openwebui-errors-ru.md
+
+
+# Крупные и приватные выгрузки не публикуем
+codex_openwebui.json
+
 # Секреты, настройки окружения и файлы аутентификации
 .env
 .env.*
@@ -125,3 +138,8 @@ build/
 *.pyc
 .DS_Store
 Thumbs.db
+
+# ���������� �� ������ ����: ��������� ���������� ���������
+!/hardpro-hub/models/
+!onec-mcp/.env.example
+!openwebui-coding/.env.example
