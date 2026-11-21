@@ -26,6 +26,14 @@
 !/systemd/hardpro-media-vision.service.d/
 !/systemd/hardpro-media-vision.service.d/*.conf
 !/systemd/qwen38-models.ini
+!/systemd/tuning-27b/
+/systemd/tuning-27b/*
+!/systemd/tuning-27b/README.md
+!/systemd/tuning-27b/bench.py
+!/systemd/tuning-27b/run_suite.sh
+!/systemd/tuning-27b/exp_mtp.sh
+!/systemd/tuning-27b/rollback.sh
+!/systemd/tuning-27b/aggr.py
 
 # Отчёт о стеке чат-моделей (RAG, видео, голос)
 !/docs/
