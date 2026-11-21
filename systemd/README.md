@@ -22,8 +22,8 @@
 | hardpro-openwebui.service | 127.0.0.1:8765 | — | enabled | systemd |
 | hardpro-gateway.service | 192.0.2.10:8775 | — | enabled | systemd (единственный LAN-вход) |
 | hardpro-vllm.service | 127.0.0.1:8000 | GPU 0 | enabled | systemd |
-| hardpro-coding (llama) | 127.0.0.1:8081 | GPU 1 | enabled | `hp-model.py autostart` через hardpro-models.service |
-| hardpro-media-vision.service | 127.0.0.1:8083 | CPU | enabled | systemd |
+| hardpro-coding (llama-роутер) | 127.0.0.1:8081 | обе, по очереди | enabled | пресет из 3 моделей, `--models-max 1` |
+| hardpro-media-vision.service | 127.0.0.1:8083 | CPU | enabled | systemd + ffmpeg для видео |
 | hardpro-flowise.service | 127.0.0.1:3000 | CPU | enabled | systemd |
 | hardpro-hub.service | 127.0.0.1:9443 | — | enabled | systemd |
 | hardpro-agent.service | 127.0.0.1:9444 | — | enabled | systemd |
@@ -44,6 +44,29 @@
 LAN-сокеты (`hardpro-team-webui-lan.socket`, `hardpro-team-comfy-lan.socket`,
 `hardpro-owner-comfy-lan.socket`) оставлены disabled: внешний доступ идёт
 через gateway на 8775, сокеты — точечные гейты для отдельных сценариев.
+
+## Роутер чат-моделей (21.11.2026)
+
+`hardpro-coding` переведён на роутер: пресет `qwen38-models.ini` из трёх
+моделей (Qwen3.8-Flash-Next, две 27B Q5), `--models-max 1` — в памяти одна,
+запрос к другой автоматически выгружает текущую и грузит нужную.
+Tensor override выгружает экспертов Flash-Next в ОЗУ, поэтому модель живёт
+в связке двух 3090 рядом с vLLM и медиа-юнитом. Обе карты видны юниту через
+`CUDA_VISIBLE_DEVICES` в `hardpro-coding.service.d/95-router.conf`.
+
+Установка:
+
+```bash
+cp systemd/hardpro-coding.service.d/95-router.conf ~/.config/systemd/user/hardpro-coding.service.d/
+cp systemd/qwen38-models.ini /srv/models/hard-pro-content/coding/work/
+cp systemd/hardpro-media-vision.service.d/40-ffmpeg.conf ~/.config/systemd/user/hardpro-media-vision.service.d/
+systemctl --user daemon-reload
+systemctl --user restart hardpro-coding.service hardpro-media-vision.service
+```
+
+Проверено контрольной генерацией по всем трём моделям со сменой (5,5–12,9 с
+на ответ, до 90 с на первый токен после смены Flash-Next). Детали по RAG,
+видео и голосу — в `docs/chat-model-stack.md`.
 
 ## Установка фикса
 

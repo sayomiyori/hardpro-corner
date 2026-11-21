@@ -21,6 +21,16 @@
 !/systemd/install-autostart.sh
 !/systemd/hardpro-vllm.service.d/
 !/systemd/hardpro-vllm.service.d/*.conf
+!/systemd/hardpro-coding.service.d/
+!/systemd/hardpro-coding.service.d/*.conf
+!/systemd/hardpro-media-vision.service.d/
+!/systemd/hardpro-media-vision.service.d/*.conf
+!/systemd/qwen38-models.ini
+
+# РћС‚С‡С‘С‚ Рѕ СЃС‚РµРєРµ С‡Р°С‚-РјРѕРґРµР»РµР№ (RAG, РІРёРґРµРѕ, РіРѕР»РѕСЃ)
+!/docs/
+/docs/*
+!/docs/chat-model-stack.md
 
 # РљРѕРґ РїСЂРѕРµРєС‚Р°: С€Р»СЋР·, РґРѕСЃРєР°, Р°РіРµРЅС‚, traceproxy, MCP 1РЎ, РѕР±РІСЏР·РєР° Open WebUI
 !/hardpro-hub/
@@ -143,7 +153,7 @@ build/
 .DS_Store
 Thumbs.db
 
-# Исключения из правил выше: последнее совпадение побеждает
+# пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅ: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ
 !/hardpro-hub/models/
 !onec-mcp/.env.example
 !openwebui-coding/.env.example
