@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
 from manager_knowledge import competition_answer, expand_terms
@@ -148,6 +148,26 @@ class ReaderTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             reader.offers(f"{P},{P}")
         self.assertEqual(reader.rows.call_count, 2)
+
+    @patch("onec_live.socket.create_connection")
+    @patch("onec_live.HTTPSConnection")
+    @patch("onec_live.ssl.create_default_context")
+    def test_ssh_relay_keeps_server_identity(self, tls_context, https, connect):
+        reader = OnecReader({"host": "192.0.2.1", "port": 18771, "ssh_relay": True,
+                             "ca": "ca", "cert": "cert", "key": "key", "warehouses": {"A": A, "B": B}})
+        response = https.return_value.getresponse.return_value
+        response.status = 200
+        response.headers.get_content_type.return_value = "application/json"
+        response.read.return_value = b"{}"
+        sock = MagicMock()
+        connect.return_value.__enter__.return_value = sock
+        https.return_value.timeout = 20
+
+        self.assertEqual(reader.get("/v1/catalog"), {})
+        connect.assert_called_once_with(("127.0.0.1", 18771), 20)
+        reader.tls.wrap_socket.assert_called_once_with(sock, server_hostname="192.0.2.1")
+        self.assertIs(https.return_value.sock, reader.tls.wrap_socket.return_value)
+        https.return_value.close.assert_called_once()
 
 
 class ManagerKnowledgeTest(unittest.TestCase):

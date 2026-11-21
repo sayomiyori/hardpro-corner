@@ -2,6 +2,7 @@
 import copy
 import json
 import re
+import socket
 import threading
 import time
 import ssl
@@ -59,6 +60,9 @@ class OnecReader:
         self.expires = 0
         self.host = config["host"]
         self.port = int(config["port"])
+        self.ssh_relay = config.get("ssh_relay", False)
+        if not isinstance(self.ssh_relay, bool):
+            raise ValueError("ssh_relay должен быть логическим значением")
         self.stores = {name: str(UUID(uid)) for name, uid in config["warehouses"].items()}
         if len(self.stores) != 2 or len(set(self.stores.values())) != 2:
             raise ValueError("Требуются два разных физических склада")
@@ -68,6 +72,9 @@ class OnecReader:
     def get(self, route, **params):
         conn = HTTPSConnection(self.host, self.port, context=self.tls, timeout=20)
         try:
+            if self.ssh_relay:
+                with socket.create_connection(("127.0.0.1", self.port), conn.timeout) as sock:
+                    conn.sock = self.tls.wrap_socket(sock, server_hostname=self.host)
             conn.request("GET", route + "?" + urlencode(params), headers={"Accept": "application/json"})
             resp = conn.getresponse()
             if resp.status != 200 or resp.headers.get_content_type() != "application/json":
