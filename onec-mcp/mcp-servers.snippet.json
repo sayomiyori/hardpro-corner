@@ -1,0 +1,21 @@
+{
+  "servers": {
+    "onec": {
+      "command": "node",
+      "args": ["/home/hardpro/hardpro/util/onec-mcp/src/server.mjs"],
+      "env": {
+        "ONEC_URL": "http://1c.local/erp/odata/standard.odata",
+        "ONEC_USER": "hardpro_mcp",
+        "ONEC_PASSWORD": "FILL_PASSWORD",
+        "ONEC_SERVICE_URL": "http://1c.local/erp/hs/hardpro",
+        "ONEC_SERVICE_TOKEN": "FILL_TOKEN",
+        "ONEC_MODE": "write",
+        "ONEC_ALLOW": "Catalog_*,Document_*,InformationRegister_*",
+        "ONEC_DENY": "Catalog_Пользователи,Catalog_ВнешниеПользователи",
+        "ONEC_MAX_ROWS": "200",
+        "ONEC_BULK_MAX": "50",
+        "ONEC_AUDIT": "/var/log/hardpro/onec-mcp.jsonl"
+      }
+    }
+  }
+}

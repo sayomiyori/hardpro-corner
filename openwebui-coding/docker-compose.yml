@@ -1,0 +1,90 @@
+services:
+  openwebui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: openwebui
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"
+    env_file:
+      - .env
+    environment:
+      # ---------- context hygiene ----------
+      # Auto-summarise old turns before the prompt overflows.
+      - ENABLE_CONTEXT_COMPACTION=${ENABLE_CONTEXT_COMPACTION:-true}
+      - CONTEXT_COMPACTION_TOKEN_THRESHOLD=${CONTEXT_COMPACTION_TOKEN_THRESHOLD:-48000}
+      - CONTEXT_COMPACTION_TOKEN_CAP=${CONTEXT_COMPACTION_TOKEN_CAP:-48000}
+      - CONTEXT_COMPACTION_RETENTION_PERCENTAGE=${CONTEXT_COMPACTION_RETENTION_PERCENTAGE:-40}
+      - CONTEXT_COMPACTION_MODEL=${CONTEXT_COMPACTION_MODEL:-}
+
+      # ---------- interface defaults (coding desk) ----------
+      - DEFAULT_INTERFACE_SETTINGS={"chatBubble":false,"widescreenMode":true,"chatHoverPreview":false,"splitLargeChunks":true,"collapseCodeBlocks":false,"expandDetails":true,"responseAutoCopy":false,"copyFormatted":true,"richTextInput":false,"promptAutocomplete":true,"ctrlEnterToSend":true,"largeTextAsFile":true,"showChatTitleInTab":true,"renderMarkdownInUserMessages":false,"renderMarkdownInAssistantMessages":true,"chatFadeStreamingText":false,"detectArtifacts":true,"iframeSandboxAllowSameOrigin":true,"iframeSandboxAllowScripts":true,"title":{"auto":false},"autoTags":false,"autoFollowUps":false}
+
+      # ---------- model defaults ----------
+      - DEFAULT_MODEL_PARAMS={"temperature":0.2,"top_p":0.95,"top_k":40,"min_p":0.0,"repeat_penalty":1.05,"num_ctx":${DEFAULT_NUM_CTX:-32768}}
+      - DEFAULT_MODEL_METADATA={"capabilities":{"file_context":true,"vision":false,"citations":false,"web_search":false,"code_interpreter":true,"usage":true}}
+
+      # ---------- features ----------
+      - ENABLE_WEB_SEARCH=${ENABLE_WEB_SEARCH:-false}
+      - ENABLE_CODE_INTERPRETER=${ENABLE_CODE_INTERPRETER:-true}
+      - ENABLE_MEMORY=${ENABLE_MEMORY:-true}
+      - ENABLE_COMMUNITY_SHARING=false
+      - ENABLE_EVALUATION_ARENA_MODELS=false
+      - ENABLE_SIGNUP=${ENABLE_SIGNUP:-false}
+      - ENABLE_OLLAMA_API=${ENABLE_OLLAMA_API:-true}
+      - OLLAMA_BASE_URLS=${OLLAMA_BASE_URLS:-http://host.docker.internal:11434}
+
+      # ---------- RAG (code drops) ----------
+      - RAG_EMBEDDING_ENGINE=${RAG_EMBEDDING_ENGINE:-ollama}
+      - RAG_EMBEDDING_MODEL=${RAG_EMBEDDING_MODEL:-nomic-embed-text}
+      - RAG_EMBEDDING_BATCH_SIZE=1
+      - RAG_TOP_K=${RAG_TOP_K:-6}
+      - RAG_TOP_K_RERANKER=4
+      - RAG_RELEVANCE_THRESHOLD=0.0
+      - CHUNK_SIZE=${CHUNK_SIZE:-1200}
+      - CHUNK_OVERLAP=${CHUNK_OVERLAP:-200}
+      - RAG_TEXT_SPLITTER=character
+      - BYPASS_EMBEDDING_AND_RETRIEVAL=${BYPASS_EMBEDDING_AND_RETRIEVAL:-false}
+      - PDF_EXTRACT_IMAGES=false
+
+      # ---------- misc ----------
+      - WEBUI_URL=${WEBUI_URL:-http://localhost:8080}
+      - WEBUI_AUTH=${WEBUI_AUTH:-true}
+      - ENV=prod
+      - GLOBAL_LOG_LEVEL=INFO
+      - AIOHTTP_CLIENT_TIMEOUT=${AIOHTTP_CLIENT_TIMEOUT:-600}
+      - AIOHTTP_CLIENT_TIMEOUT_MODEL_LIST=10
+    volumes:
+      - openwebui-data:/app/backend/data
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    profiles: ["local"]
+    ports:
+      - "127.0.0.1:11434:11434"
+    environment:
+      # Server-side ceiling for every model. Leave num_ctx UNSET in the UI
+      # or it overrides this and can silently cap you at 2048.
+      - OLLAMA_CONTEXT_LENGTH=${OLLAMA_CONTEXT_LENGTH:-32768}
+      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-30m}
+      - OLLAMA_FLASH_ATTENTION=${OLLAMA_FLASH_ATTENTION:-1}
+      - OLLAMA_KV_CACHE_TYPE=${OLLAMA_KV_CACHE_TYPE:-q8_0}
+      - OLLAMA_MAX_LOADED_MODELS=${OLLAMA_MAX_LOADED_MODELS:-1}
+      - OLLAMA_NUM_PARALLEL=${OLLAMA_NUM_PARALLEL:-1}
+    volumes:
+      - ollama-models:/root/.ollama
+    # Uncomment for NVIDIA:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+
+volumes:
+  openwebui-data:
+  ollama-models:
