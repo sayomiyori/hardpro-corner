@@ -3,9 +3,9 @@
 // @namespace    bench.openwebui
 // @version      2.2.0
 // @description  Slim context-window meter pinned above the message box. Reads real prompt/completion counts from the API, the on-screen stats line, or the DOM.
-// @match        http://192.168.88.202:8775/*
+// @match        http://192.0.2.10:8775/*
 // @match        *://*/*
-// @include      /^https?:\/\/[^\/]*hardpro-llm[^\/]*\//
+// @include      /^https?:\/\/[^\/]*llm-host[^\/]*\//
 // @run-at       document-start
 // @grant        GM_info
 // @noframes

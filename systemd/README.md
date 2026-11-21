@@ -20,7 +20,7 @@
 | Unit | Порт | GPU | Автозапуск | Кто грузит |
 | --- | --- | --- | --- | --- |
 | hardpro-openwebui.service | 127.0.0.1:8765 | — | enabled | systemd |
-| hardpro-gateway.service | 192.168.88.202:8775 | — | enabled | systemd (единственный LAN-вход) |
+| hardpro-gateway.service | 192.0.2.10:8775 | — | enabled | systemd (единственный LAN-вход) |
 | hardpro-vllm.service | 127.0.0.1:8000 | GPU 0 | enabled | systemd |
 | hardpro-coding (llama) | 127.0.0.1:8081 | GPU 1 | enabled | `hp-model.py autostart` через hardpro-models.service |
 | hardpro-media-vision.service | 127.0.0.1:8083 | CPU | enabled | systemd |

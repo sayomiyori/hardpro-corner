@@ -117,7 +117,7 @@ Keep diffs minimal; show full file only when asked.
    `==UserScript==` шапки) → Enter. Живёт до перезагрузки страницы.
 
 Скрипт хост-независимый: `@match *://*/*` + тихая проверка `/api/config`.
-Работает на `hardpro-llm`, на любом порту, по http и https, под реверс-прокси
+Работает на `llm-host`, на любом порту, по http и https, под реверс-прокси
 с подпутём (`/openwebui/c/<id>` — префикс вычисляется из `location.pathname`).
 На чужих сайтах скрипт сам выключается через 10 секунд, если `#chat-input`
 так и не появился, а `/api/config` не ответил как Open WebUI.
@@ -135,7 +135,7 @@ Keep diffs minimal; show full file only when asked.
 
 Удалённый сервер: цифры идут с того же origin, что и чат, — плашка не знает про
 `localhost`. Единственное, что живёт локально, — таблица `WINDOWS`; если окно
-модели на `hardpro-llm` отличается, поправь строку в таблице или
+модели на `llm-host` отличается, поправь строку в таблице или
 `CFG.fallbackWindow`.
 
 ## 8. Чеклист после первого запуска
