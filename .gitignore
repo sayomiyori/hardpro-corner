@@ -10,6 +10,14 @@
 # /docs/*
 # !/docs/overview.md
 
+# systemd-конфиги сервера hard-pro-llm: юниты, drop-in, установщик
+!/systemd/
+/systemd/*
+!/systemd/README.md
+!/systemd/install-autostart.sh
+!/systemd/hardpro-vllm.service.d/
+!/systemd/hardpro-vllm.service.d/*.conf
+
 # Секреты, настройки окружения и файлы аутентификации
 .env
 .env.*
