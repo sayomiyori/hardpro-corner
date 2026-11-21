@@ -4,6 +4,10 @@
 !/AGENTS.md
 !/README.md
 
+# LAN-обвязка: исходники доски, агента, шлюза и trace-прокси
+!/lan-hub/
+!/lan-hub/**
+
 # Для вложенных файлов открыть родительский каталог, закрыть его содержимое
 # и разрешить только выбранные файлы. Пример для будущей публичной инструкции:
 # !/docs/
@@ -143,3 +147,4 @@ Thumbs.db
 !/hardpro-hub/models/
 !onec-mcp/.env.example
 !openwebui-coding/.env.example
+!/lan-hub/models/
