@@ -32,6 +32,10 @@
 /docs/*
 !/docs/chat-model-stack.md
 
+# Публичное описание и патч менеджерского поиска
+!/docs/manager-dialog.md
+!/docs/manager-dialog.patch
+
 # Код проекта: шлюз, доска, агент, traceproxy, MCP 1С, обвязка Open WebUI
 !/hardpro-hub/
 !/onec-mcp/
