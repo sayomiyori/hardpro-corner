@@ -190,7 +190,7 @@ Environment=GW_HOST=$LAN_IP
 Environment=GW_PORT=8775
 Environment=GW_HUB_PORT=9443
 Environment=GW_AGENT_PORT=9444
-Environment=GW_WEBUI_PORT=8775
+Environment=GW_WEBUI_PORT=${GW_WEBUI_PORT:-8765}
 ExecStart=$PY $ROOT/gateway/gateway.py
 Restart=always
 RestartSec=3

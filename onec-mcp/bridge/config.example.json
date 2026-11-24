@@ -1,10 +1,10 @@
 {
   "port": 8774,
   "token": "FILL_RANDOM_HEX",
-  "mode": "write",
-  "database": "Srvr=\"192.168.1.195\";Ref=\"base\";",
-  "credentials": "E:\\Work\\Projects\\website\\1c_mcp_transfer\\config\\onec-work-credentials.secret",
+  "mode": "readonly",
+  "database": "Srvr=\"onec.example.invalid\";Ref=\"demo\";",
+  "credentials": "E:\\Work\\Secrets\\onec-demo.secret",
   "allow": ["Справочник.*", "Документ.*"],
   "deny": ["Справочник.Пользователи", "Справочник.ВнешниеПользователи"],
-  "audit": "E:\\Work\\Tools\\onec-bridge\\audit.jsonl"
+  "audit": "E:\\Work\\Temp\\onec-bridge\\audit.jsonl"
 }

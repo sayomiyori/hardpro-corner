@@ -1,6 +1,6 @@
 param(
   [string]$Address = "hardpro.lan",
-  [string]$Ip = "192.168.88.202",
+  [string]$Ip,
   [switch]$Remove
 )
 
@@ -16,6 +16,8 @@ if ($Remove) {
   Write-Host "запись удалена из $hosts"
   return
 }
+
+if (-not $Ip) { throw 'Укажите адрес локального шлюза через -Ip.' }
 
 if ($current -match [regex]::Escape($marker)) {
   Write-Host "уже зарегистрировано"

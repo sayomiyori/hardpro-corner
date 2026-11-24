@@ -2,7 +2,7 @@
 
   /hub/*    -> доска моделей   (127.0.0.1:9443)
   /agent/*  -> агент           (127.0.0.1:9444)
-  остальное -> Open WebUI      (127.0.0.1:8775)
+  остальное -> Open WebUI      (127.0.0.1:8765)
 
 Каждый запрос обслуживается отдельным соединением с бэкендом и закрывает
 клиентское соединение после ответа (Connection: close). Так браузер не может
@@ -20,7 +20,7 @@ LISTEN_HOST = os.environ.get("GW_HOST", "192.0.2.10")
 LISTEN_PORT = int(os.environ.get("GW_PORT", "8775"))
 HUB = ("127.0.0.1", int(os.environ.get("GW_HUB_PORT", "9443")))
 AGENT = ("127.0.0.1", int(os.environ.get("GW_AGENT_PORT", "9444")))
-WEBUI = ("127.0.0.1", int(os.environ.get("GW_WEBUI_PORT", "8775")))
+WEBUI = ("127.0.0.1", int(os.environ.get("GW_WEBUI_PORT", "8765")))
 ROUTES = (("/hub", HUB), ("/agent", AGENT))
 
 
