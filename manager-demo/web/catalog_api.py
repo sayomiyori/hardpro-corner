@@ -25,6 +25,7 @@ MSK = timezone(timedelta(hours=3))
 sys.path.append(str(RELEASE))
 from assistant_dialog import catalog_turns, decision, health_question, model_json, with_intro
 from manager_catalog import ManagerCatalog
+import manager_reports
 
 
 from site_catalog import read_store
@@ -143,6 +144,9 @@ def reply(role, turns, context=()):
         question = turns[-1]
         if health_question(question):
             return onec_status()
+        if reader_config and (business_answer := manager_reports.reply(
+                question, parse, lambda: configured_reader(reader_config))) is not None:
+            return business_answer
         definition = definition_answer(turns[-1])
         if definition:
             return definition.replace("\n", "  \n")

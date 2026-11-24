@@ -1,8 +1,9 @@
 """Read-only HTTP adapter for the Windows host of the 1C:Retail database."""
 import argparse
 import json
+import re
 import ssl
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlsplit
@@ -35,6 +36,36 @@ DETAILS = """ВЫБРАТЬ ПЕРВЫЕ 1 ВЫРАЗИТЬ(Н.Описание 
     Н.НаименованиеПолное КАК full_name, ПРЕДСТАВЛЕНИЕ(Н.Производитель) КАК manufacturer,
     ПРЕДСТАВЛЕНИЕ(Н.ВидНоменклатуры) КАК kind
     ИЗ Справочник.Номенклатура КАК Н ГДЕ Н.Ссылка = &product И НЕ Н.ПометкаУдаления И НЕ Н.ЭтоГруппа"""
+REPORTS = {
+    "sales": """ВЫБРАТЬ ЕСТЬNULL(СУММА(О.КоличествоОборот), 0) КАК quantity,
+        ЕСТЬNULL(СУММА(О.СтоимостьОборот), 0) КАК amount
+        ИЗ РегистрНакопления.Продажи.Обороты(&start, &end, , ) КАК О""",
+    "purchases": """ВЫБРАТЬ ЕСТЬNULL(СУММА(О.КоличествоОборот), 0) КАК quantity,
+        ЕСТЬNULL(СУММА(О.СуммаОборот), 0) КАК amount
+        ИЗ РегистрНакопления.ЗакупкиТоваров.Обороты(&start, &end, , ) КАК О""",
+}
+ORDER = """ВЫБРАТЬ ПЕРВЫЕ 2 З.Номер КАК number, З.НомерЗаказаНаСайте КАК site_number,
+    З.Дата КАК order_date, ПРЕДСТАВЛЕНИЕ(З.Статус) КАК status,
+    ВЫБОР КОГДА З.Отменено ТОГДА 1 ИНАЧЕ 0 КОНЕЦ КАК cancelled, З.СуммаДокумента КАК amount,
+    УНИКАЛЬНЫЙИДЕНТИФИКАТОР(З.Ссылка) КАК uid
+    ИЗ Документ.ЗаказПокупателя КАК З
+    ГДЕ НЕ З.ПометкаУдаления И З.Дата >= &start И З.Дата <= &end
+        И (З.Номер = &number ИЛИ З.НомерЗаказаНаСайте = &number)"""
+ORDER_ITEMS = """ВЫБРАТЬ ПЕРВЫЕ 26 Т.Номенклатура.Наименование КАК title,
+    Т.Характеристика.Наименование КАК variant, Т.Количество КАК quantity,
+    ВЫБОР КОГДА Т.Отменено ТОГДА 1 ИНАЧЕ 0 КОНЕЦ КАК cancelled
+    ИЗ Документ.ЗаказПокупателя.Товары КАК Т
+    ГДЕ Т.Ссылка = &order
+    УПОРЯДОЧИТЬ ПО Т.НомерСтроки"""
+ORDER_PAYMENT = """ВЫБРАТЬ ПЕРВЫЕ 2 ПРЕДСТАВЛЕНИЕ(О.Состояние) КАК state
+    ИЗ РегистрСведений.СостояниеОплатыЗаказаПокупателя.СрезПоследних(, ЗаказПокупателя = &order) КАК О"""
+ORDER_DELIVERY = """ВЫБРАТЬ ПЕРВЫЕ 2 ПРЕДСТАВЛЕНИЕ(Д.Состояние) КАК state
+    ИЗ РегистрСведений.СостояниеДоставкиЗаказаПокупателя.СрезПоследних(, ЗаказПокупателя = &order) КАК Д"""
+
+
+def wall_time(day, *, end=False):
+    # COM передаёт поля времени UTC, а база хранит московское время без смещения.
+    return datetime.combine(day, time(23, 59, 59) if end else time.min, tzinfo=timezone.utc)
 
 
 class Retail:
@@ -134,6 +165,36 @@ class Retail:
                          product=self.ref("Номенклатура", product))
         return {"product": product, "details": rows[0] if rows else None}
 
+    def report(self, kind, start, end):
+        first, last = date.fromisoformat(start), date.fromisoformat(end)
+        if (kind not in REPORTS or first.isoformat() != start or last.isoformat() != end
+                or not 0 <= (last - first).days < 366 or last > datetime.now(MSK).date()):
+            raise ValueError("Недопустимый период отчёта")
+        rows = self.rows(REPORTS[kind], ["quantity", "amount"], start=wall_time(first), end=wall_time(last, end=True))
+        if len(rows) != 1:
+            raise RuntimeError("Неожиданный ответ регистра")
+        return {"kind": kind, "start": start, "end": end, **rows[0]}
+
+    def order(self, number, year):
+        if not re.fullmatch(r"[A-Za-zА-Яа-яЁё0-9-]{1,32}", number) or not re.search(r"[0-9]", number):
+            raise ValueError("Недопустимый номер заказа")
+        if not re.fullmatch(r"[0-9]{4}", year) or not 1900 <= int(year) <= datetime.now(MSK).year:
+            raise ValueError("Недопустимый год заказа")
+        rows = self.rows(ORDER, ["number", "site_number", "order_date", "status", "cancelled", "amount", "uid"],
+                         number=number, start=wall_time(date(int(year), 1, 1)),
+                         end=wall_time(date(int(year), 12, 31), end=True))
+        if len(rows) != 1:
+            return {"result": "ambiguous" if rows else "missing"}
+        order = rows[0]
+        uid = str(UUID(order.pop("uid")))
+        ref = self.db.Documents.ЗаказПокупателя.GetRef(self.db.NewObject("UUID", uid))
+        items = self.rows(ORDER_ITEMS, ["title", "variant", "quantity", "cancelled"], order=ref)
+        payment = self.rows(ORDER_PAYMENT, ["state"], order=ref)
+        delivery = self.rows(ORDER_DELIVERY, ["state"], order=ref)
+        return {"result": "found", **order, "items": items[:25], "truncated": len(items) > 25,
+                "payment": payment[0]["state"] if len(payment) == 1 else "",
+                "delivery": delivery[0]["state"] if len(delivery) == 1 else ""}
+
 
 class Endpoint(BaseHTTPRequestHandler):
     def do_GET(self):
@@ -148,6 +209,10 @@ class Endpoint(BaseHTTPRequestHandler):
                 payload = self.server.retail.offers(params["products"][0])
             elif uri.path=="/v1/details" and set(params)=={"product"} and len(params["product"])==1:
                 payload = self.server.retail.details(params["product"][0])
+            elif uri.path=="/v1/report" and set(params)=={"kind","start","end"} and all(len(v)==1 for v in params.values()):
+                payload = self.server.retail.report(params["kind"][0],params["start"][0],params["end"][0])
+            elif uri.path=="/v1/order" and set(params)=={"number","year"} and all(len(v)==1 for v in params.values()):
+                payload = self.server.retail.order(params["number"][0],params["year"][0])
             else:
                 self.send_error(404)
                 return

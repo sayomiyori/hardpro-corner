@@ -111,3 +111,14 @@ class ServiceTest(unittest.TestCase):
             site.assert_called_once_with("stage", "test")
             for tool in (reader, catalog):
                 tool.assert_not_called()
+
+    def test_buyer_cannot_dispatch_an_internal_read(self):
+        store = Mock()
+        with (patch.object(catalog_api, "read_store", return_value=(store, "test")),
+              patch.object(catalog_api, "parse", return_value='{"action":"chat","answer":"Могу помочь с каталогом."}'),
+              patch.object(catalog_api.manager_reports, "reply") as internal,
+              patch.object(catalog_api, "configured_reader") as reader):
+            answer = catalog_api.reply("buyer", ["shop:stage:test\nЗаказ №00-012345"])
+            self.assertEqual(answer, "Могу помочь с каталогом.")
+            internal.assert_not_called()
+            reader.assert_not_called()
