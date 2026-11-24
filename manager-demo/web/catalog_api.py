@@ -3,14 +3,12 @@ import copy
 import json
 import logging
 import os
-import runpy
 import secrets
 import sys
 import threading
 import time
 import uuid
 from datetime import datetime, timedelta, timezone
-from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
@@ -24,15 +22,13 @@ RELEASE = ROOT / "onec-pilot/full-release"
 SNAPSHOT = ROOT / "onec-pilot/full-catalog.json"
 LIVE_SNAPSHOT = ROOT / "onec-pilot/live-snapshot.json"
 MSK = timezone(timedelta(hours=3))
-sys.path.insert(0, str(RELEASE))
-from archive_catalog import Catalog
-
-cli = runpy.run_path(str(RELEASE / "hp-manager"))
-vllm_key = next(line.partition("=")[2].strip() for line in cli["KEY_FILE"].read_text().splitlines()
-                if line.startswith("VLLM_API_KEY="))
+sys.path.append(str(RELEASE))
+from assistant_dialog import catalog_turns, decision, health_question, model_json, with_intro
+from manager_catalog import ManagerCatalog
 
 
 from site_catalog import read_store
+from shop_dialog import ShopDialog, blocked
 from onec_live import configured_reader
 from manager_knowledge import competition_answer, definition_answer, merge_clarification, resolve_context
 
@@ -67,7 +63,7 @@ def snapshot():
 
 def snapshot_catalog():
     stamp, data = snapshot()
-    return Catalog(data), stamp
+    return ManagerCatalog(data), stamp
 
 
 def save_live(cat):
@@ -100,10 +96,7 @@ def model_list(role: str, request: Request):
                                         "object": "model", "owned_by": "hardpro"}]}
 
 
-@lru_cache(maxsize=512)
-def parse(system, question):
-    return cli["ask"]([{"role": "system", "content": system}, {"role": "user", "content": question}],
-                      vllm_key, json_output=True)
+parse = model_json
 
 
 def live_catalog(turns):
@@ -113,7 +106,7 @@ def live_catalog(turns):
         return None
     try:
         cat = configured_reader(reader_config).session()
-    except OSError as exc:
+    except (OSError, ValueError, KeyError) as exc:
         with _link_lock:
             _link_down_until = time.monotonic() + 120
         log.warning("канал рабочей 1С не отвечает, отвечаю по выгрузке: %s", exc, exc_info=True)
@@ -124,16 +117,32 @@ def live_catalog(turns):
         log.warning("снимок каталога не сохранён: %s", exc)
     try:
         return cat.answer(turns, lambda m: parse(m[0]["content"], m[1]["content"])).replace("\n", "  \n")
-    except OSError as exc:
+    except (OSError, ValueError, KeyError) as exc:
         with _link_lock:
             _link_down_until = time.monotonic() + 120
         log.warning("канал рабочей 1С оборвался во время ответа: %s", exc, exc_info=True)
         return None
 
 
-def reply(role, turns):
+def onec_status():
+    global _link_down_until
+    if not reader_config:
+        return "Для этого чата связь с рабочей 1С не настроена."
+    try:
+        configured_reader(reader_config).check()
+    except (OSError, ValueError, KeyError) as exc:
+        log.warning("контрольный запрос к читателю 1С завершился ошибкой: %s", type(exc).__name__)
+        return "Проверил подключение. Читатель 1С не подтвердил чтение каталога."
+    with _link_lock:
+        _link_down_until = 0.0
+    return f"Связь с рабочей 1С есть. Пробное чтение каталога прошло в {datetime.now(MSK):%H:%M:%S} МСК."
+
+
+def reply(role, turns, context=()):
     if role == "manager":
-        turns = merge_clarification(turns)
+        question = turns[-1]
+        if health_question(question):
+            return onec_status()
         definition = definition_answer(turns[-1])
         if definition:
             return definition.replace("\n", "  \n")
@@ -143,6 +152,20 @@ def reply(role, turns):
         competition = competition_answer(turns[-1], turns[:-1])
         if competition:
             return competition.replace("\n", "  \n")
+        action, message = decision(turns, parse, context=context)
+        if action == "chat":
+            return message
+        turns = merge_clarification(catalog_turns(turns, parse) if action == "followup" else [question])
+        if reader_config:
+            answer = live_catalog(turns)
+            if answer is not None:
+                return with_intro(question, answer, parse)
+        cat, stamp = snapshot_catalog()
+        answer = cat.archive_answer(turns, lambda m: parse(m[0]["content"], m[1]["content"]))
+        prefix = f"По выгрузке 1С на {stamp}. Здесь только архивные остатки, цен в выгрузке нет."
+        if reader_config:
+            prefix = "Чат сейчас не получил ответ от читателя 1С. " + prefix
+        return with_intro(question, prefix + "\n\n" + answer.replace("\n", "  \n"), parse)
     if role == "buyer":
         source, separator, _ = turns[-1].partition("\n")
         parts = source.split(":")
@@ -150,22 +173,16 @@ def reply(role, turns):
             raise ValueError("Missing site context")
         cat, stamp = read_store(parts[1], parts[2])
         turns = [q.partition("\n")[2] for q in turns if q.startswith(f"shop:{parts[1]}:")]
-        prefix = f"По данным сайта на {stamp}."
-    elif reader_config:
-        answer = live_catalog(turns)
-        if answer is not None:
-            return answer
-        cat, stamp = snapshot_catalog()
-        prefix = (f"Рабочая 1С сейчас не отвечает, отвечаю по последней выгрузке на {stamp}. "
-                  "Свежее наличие и брони не подтверждены.")
-    else:
-        cat, stamp = snapshot_catalog()
-        prefix = f"По выгрузке на {stamp}."
-    for question in turns:
-        answer = cat.reply(question, lambda m: parse(m[0]["content"], m[1]["content"]))
-    if role == "buyer":
-        answer = answer.replace("в выгрузке", "в каталоге сайта").replace("артикул или код из 1С", "артикул")
-    return prefix + "\n\n" + answer.replace("\n", "  \n")
+        if health_question(turns[-1]):
+            return "В этом чате я могу проверить товары, цены и наличие по каталогу магазина."
+        turns = [q for q in turns[:-1] if not blocked(q)] + turns[-1:]
+        action, message = decision(turns, parse, buyer=True)
+        if action == "chat":
+            return message
+        turns = catalog_turns(turns, parse, buyer=True) if action == "followup" else turns[-1:]
+        answer, _ = ShopDialog(cat).answer(turns)
+        return with_intro(turns[-1], f"По данным сайта на {stamp}.\n\n" + answer.replace("\n", "  \n"), parse)
+    raise ValueError("Unknown role")
 
 
 @app.post("/{role}/v1/chat/completions")
@@ -178,18 +195,25 @@ async def complete(role: str, request: Request):
     if not isinstance(messages, list) or len(messages) > 125:
         raise HTTPException(400, "Начните новый диалог.")
     turns = []
+    context = []
     for message in messages:
         if isinstance(message, dict) and message.get("role") == "user":
             value = message.get("content")
-            if isinstance(value, list) and all(isinstance(p, dict) and p.get("type") == "text" for p in value):
+            if isinstance(value, list) and all(isinstance(p, dict) and p.get("type") == "text"
+                                               and isinstance(p.get("text"), str) for p in value):
                 value = "\n".join(p["text"] for p in value)
             if not isinstance(value, str) or not 0 < len(value.strip()) <= 1500:
                 raise HTTPException(400, "Введите текст до 1500 символов.")
             turns.append(value.strip())
+            context.append({"вопрос": value.strip()})
+        elif isinstance(message, dict) and message.get("role") == "assistant":
+            value = message.get("content")
+            if isinstance(value, str) and value.strip():
+                context.append({"предыдущий ответ": value.strip()[:1200]})
     if not turns:
         raise HTTPException(400, "Нет вопроса")
     try:
-        answer = await run_in_threadpool(reply, role, turns)
+        answer = await run_in_threadpool(reply, role, turns, context[-5:])
     except OSError as exc:
         log.warning("источник каталога недоступен: %s", exc, exc_info=True)
         raise HTTPException(503, "Источник каталога недоступен. Повторите вопрос.")

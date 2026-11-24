@@ -29,7 +29,7 @@ KIT = re.compile(r"\b(?:комплект\w*|набор\w*|экипировк\w*|
 ITEMS = {
     "Перчатки": r"\bперчат\w*",
     "Бинты": r"\bбинт\w*",
-    "Капа": r"\bкап(?:а|ы|у|е|ой|ами|ой|)\b",
+    "Капа": r"\bкап(?:а|ы|у|е|ой|ою|ам|ами|ах)?\b",
     "Шлем": r"\bшлем\w*",
     "Защита голени": r"защит\w* голен|щитк\w*|накладк\w* на голень",
     "Шорты": r"\bшорт\w*",
@@ -46,7 +46,7 @@ SPORTS = (
     (r"джиу|грэпплинг|грепплинг|\bbjj\b", "грэпплинга", ("Рашгард", "Шорты")),
     (r"фитнес|зал\b", "фитнеса", ("Футболка", "Шорты")),
 )
-FILLER = words("есть какие какой можно купить в наличии сколько всего осталось покажи подскажи пожалуйста "
+FILLER = words("слушай есть какие какой можно купить в наличии сколько всего осталось покажи подскажи пожалуйста "
                "хочу ищу нужны нужна нужен нужныe найдите найди подберите подобрать предложи варианты магазин "
                "склад товар цену цена цены цен стоимость стоит размер вес цвет черный белый синий красный "
                "доступно севастополь симферополь севастополе симферополе руб рублей раньше история динамика "
@@ -178,8 +178,25 @@ class ShopDialog:
         title = "Уточните модель или вариант. Можно написать номер строки, размер или цвет."
         lines, links = [title], []
         for number, (exact, row) in enumerate(part,self.page+1):
-            label = row["товар"] + (" · " + row["вариант"] if exact else "")
+            label = row["товар"] + (" · " + row["вариант"] if exact and row["id"] else "")
             links.append({**link(row,exact),"label":f"№{number} {label}"})
+            variants = ([row] if exact else
+                        [self.cat.rows[i] for i in self.cat.by_product[row["код"]]
+                         if self.attrs <= self.cat.variant_words[i]])
+            active = [variant for variant in variants if variant["id"]]
+            if not active:
+                lines.append(f"№{number} {label} · нет активных вариантов")
+                continue
+            prices = sorted({variant["price_cents"] for variant in active if variant["price_cents"]})
+            if len(prices) > 1:
+                price = f"{rub(prices[0])} – {rub(prices[-1])}"
+            elif prices:
+                price = rub(prices[0])
+            else:
+                price = "цена не указана"
+            stock = "; ".join(f"{city} — {sum(variant['склады'][city] for variant in active)} шт."
+                              for city in ([self.city] if self.city else STORES))
+            lines.append(f"№{number} {label} · {price}. {stock}.")
         if len(self.options)>8:
             lines.append(f"Показано {self.page+1}–{self.page+len(part)} из {len(self.options)}. Напишите «ещё» для продолжения.")
         return "\n".join(lines), links
@@ -264,22 +281,29 @@ class ShopDialog:
         anchors += re.findall(r"\b(?:размер\w*|рост(?:ом|а)?)\s+(\d+(?:[.,]\d+)?)",phrase)
         term_phrase = COLORS.sub(" ", SIZES.sub(" ", phrase))
         categories = [re.compile(pattern) for pattern in ITEMS.values() if re.search(pattern,phrase)]
+        for pattern in categories:
+            term_phrase = pattern.sub(" ", term_phrase)
+        def same_category(row):
+            return all(pattern.search(normalize(row["товар"])) for pattern in categories)
+
         direct = list(dict.fromkeys(code for token in re.findall(r"[\w-]{3,64}",phrase)
                                     for code in self.cat.articles.get(token,())
-                                    if all(pattern.search(normalize(self.cat.products[code]["товар"])) for pattern in categories)))
+                                    if same_category(self.cat.products[code])))
         terms = words(term_phrase) - FILLER - words(" ".join(anchors),variant=True)
         common = terms & self.cat.vocabulary
         # A size-only follow-up must not become a new product search.
         if self.selected and not common and (anchors or city):
             direct = []
-        codes = direct or ([code for code,tokens in self.cat.product_words.items() if common<=tokens] if common else [])
+        codes = direct or ([code for code,tokens in self.cat.product_words.items()
+                            if common <= tokens and same_category(self.cat.products[code])]
+                           if common or categories else [])
         compare = bool(HISTORY.search(phrase))
         all_cities = all(name.casefold().rstrip("ь") in phrase for name in STORES) or bool(re.search(r"\b(?:оба|обоих|всех|другом)\s+(?:город\w*|магазин\w*|склад\w*)", phrase))
         if codes:
             self.attrs = words(" ".join(anchors),variant=True)
             self.city = city
             self.compare = compare
-        elif self.selected and (anchors or city or all_cities or compare) and not common:
+        elif self.selected and (anchors or city or all_cities or compare) and not common and not categories:
             codes = self.selected
             if anchors:
                 self.attrs = words(" ".join(anchors),variant=True)
@@ -287,5 +311,5 @@ class ShopDialog:
                 self.city = city
             self.compare = self.compare or compare
         else:
-            return HELP, []
+            return ("В опубликованном каталоге пока не нашёл таких товаров.", []) if categories else (HELP, [])
         return self.choose(codes)

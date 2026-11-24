@@ -14,7 +14,8 @@ from pathlib import Path
 from urllib.parse import urlencode
 from uuid import UUID
 
-from archive_catalog import COLORS, SIZES, Catalog
+from archive_catalog import COLORS, SIZES
+from manager_catalog import ManagerCatalog, display, units
 from manager_knowledge import expand_terms
 
 
@@ -114,6 +115,11 @@ class OnecReader:
             after = cursor
         raise ValueError("Превышен предел страниц справочника")
 
+    def check(self):
+        page = self.get("/v1/catalog", after="")
+        if not isinstance(page, dict) or not isinstance(page.get("items"), list) or not page["items"]:
+            raise ValueError("1С не подтвердила чтение справочника")
+
     def balances(self, row):
         product, variant = str(UUID(row["product"])), str(UUID(row["id"]))
         reply = self.get("/v1/stock", product=product, variant=variant)
@@ -171,7 +177,7 @@ class OnecReader:
         return payload["details"]
 
 
-class LiveCatalog(Catalog):
+class LiveCatalog(ManagerCatalog):
     def __init__(self, data, reader):
         super().__init__(data)
         self.reader = reader
@@ -217,7 +223,9 @@ class LiveCatalog(Catalog):
                 city = self.selected[1] if self.selected else self.criteria["warehouse"]
                 self.selected = (matches, city) if matches else self.selected
         if self.selected is None:
-            return result.replace("в выгрузке", "в справочнике 1С")
+            if self.options and result == self.menu():
+                return self.offer_menu()
+            return result
         indices, city = self.selected
         stores = [city] if city else self.stores
         if budget is not None and site_price:
@@ -226,15 +234,54 @@ class LiveCatalog(Catalog):
             answer = self.price_and_stock(indices, stores, budget)
         elif want_details and not want_stock:
             answer = ""
-        elif len(indices) > 8:
+        elif want_stock or site_price:
+            if len(indices) > 8:
+                return "Уточните размер или цвет. Можно запросить остатки сразу для восьми вариантов."
+            answer = "\n\n".join(self.stock_text(idx, stores) for idx in indices)
+        elif len(indices) > 24:
             answer = "Уточните размер или цвет. Можно запросить остатки сразу для восьми вариантов."
         else:
-            answer = "\n\n".join(self.stock_text(idx, stores) for idx in indices)
+            answer = self.price_and_stock(indices, stores, None)
         if want_details:
             answer = "\n\n".join(filter(None, [self.details_text(indices), answer]))
         if site_price:
             answer += "\n\nЦены сайта по этим вариантам пока недоступны."
         return answer
+
+    def offer_menu(self):
+        visible = list(self.visible())
+        products = list(dict.fromkeys(self.rows[indices[0]]["product"] for _, indices in visible))
+        stamp, stocks, prices = self.reader.offers(products)
+        city = self.criteria["warehouse"]
+        stores = [city] if city else self.stores
+        lines = [f"По рабочей 1С на {stamp:%d.%m.%Y %H:%M:%S} МСК. Позиций: {len(self.options)}."]
+        for number, indices in visible:
+            row = self.rows[indices[0]]
+            keys = [(self.rows[i]["product"], self.rows[i]["id"]) for i in indices]
+            confirmed_prices = sorted({prices[key] for key in keys if prices.get(key) is not None})
+            if not confirmed_prices:
+                price = "розничная цена не подтверждена"
+            elif len(confirmed_prices) > 1:
+                price = f"{price_text(confirmed_prices[0])} – {price_text(confirmed_prices[-1])}"
+            else:
+                price = price_text(confirmed_prices[0])
+            if confirmed_prices and any(prices.get(key) is None for key in keys):
+                price += " (по вариантам с ценой)"
+            amounts = []
+            for name in stores:
+                uid = self.reader.stores[name]
+                values = [max(stocks[key][uid], Decimal(0)) for key in keys if uid in stocks.get(key, {})]
+                total = sum(values)
+                if len(values) == len(keys):
+                    detail = f"{units(total)} шт."
+                elif total > 0:
+                    detail = f"от {units(total)} шт."
+                else:
+                    detail = "нет данных"
+                amounts.append(f"{display(name)} — {detail}")
+            lines.append(f"№{number} {display(row['товар'])} · {self.variant_summary(indices)} · "
+                         f"{price}. {'; '.join(amounts)}.")
+        return "\n".join([*lines, self.menu_hint()])
 
     def stock_text(self, idx, stores):
         row = self.rows[idx]
@@ -243,7 +290,7 @@ class LiveCatalog(Catalog):
                           self.variant_text(idx, stores, amounts)])
 
     def variant_text(self, idx, stores, amounts):
-        lines = [f"{self.rows[idx]['товар']} — {self.label(idx)}."]
+        lines = [f"{display(self.rows[idx]['товар'])} — {self.label(idx)}."]
         for name in stores:
             uid = self.reader.stores[name]
             if uid not in amounts:
@@ -305,9 +352,9 @@ class LiveCatalog(Catalog):
         rows = [self.rows[i] for i in indices]
         row = rows[0]
         if any(item["product"] != row["product"] for item in rows):
-            return "Уточните модель или артикул, чтобы показать описание из 1С."
+            return "Уточните модель, чтобы показать описание из 1С."
         variants = [self.label(idx) for idx in self.by_product[row["код"]]]
-        lines = [f"{row['товар']} (артикул {row['артикул'] or 'не указан'}).",
+        lines = [f"{display(row['товар'])}.",
                  "Характеристики в 1С: " + ", ".join(variants[:24]) + "."]
         if len(variants) > 24:
             lines.append(f"Показано 24 из {len(variants)} характеристик.")

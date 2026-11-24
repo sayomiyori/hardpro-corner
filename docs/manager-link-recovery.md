@@ -62,11 +62,18 @@ journalctl --user -u hardpro-catalog.service -n 40 --no-pager | grep -i 'кан�
 journalctl --user -u hardpro-link-guard.service --no-pager | tail
 ```
 
-- `RemoteDisconnected` сразу после TLS-рукопожатия — читатель принял соединение, но не
-  открыл сеанс `Retail`; на Hoster смотреть `watchdog.log` и права `HP_Manager_Read`.
+- `RemoteDisconnected` после TLS-рукопожатия — соединение закрыто до HTTP-ответа.
+  На Hoster проверьте `watchdog.log`, запуск читателя и открытие сеанса `Retail`.
 - `ConnectionRefusedError` — туннель есть, читателя нет: задача на Hoster не запущена.
 - `TimeoutError` — сеть или SpaceWeb; проверить `ping 195.208.123.14` и `systemctl --user
   restart hardpro-onec-link`.
 
 Проверка без внешнего инструмента — один вопрос в Open WebUI. Ответ с датой снимка
 означает, что слой модели и каталога живы, а 1С недоступна.
+
+Для проверки источника через `onec_work` прочитайте несколько строк номенклатуры
+или точный вариант из регистра розничных цен и остатков. Это проверяет базу через MCP.
+Фраза «проверь подключение к 1С» в Open WebUI отдельно проверяет маршрут до читателя. Если MCP
+читает данные, а чат возвращает ошибку, проверьте задачу `HARD-PRO 1C reader watchdog` на Hoster
+и процесс, который слушает порт читателя. При перезапуске завершите только процесс
+`onec_reader_windows.py` и используйте существующую задачу Планировщика для его запуска.

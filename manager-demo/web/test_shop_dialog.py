@@ -53,6 +53,21 @@ class AssistantTest(unittest.TestCase):
         self.assertEqual(links[0]["href"],"/shop/product?id=40&sku=5")
         self.assertNotIn("штаны",answer)
 
+    def test_brand_does_not_replace_explicit_category(self):
+        data = feed()
+        data["rows"][0]["title"] = data["rows"][1]["title"] = "Боксёрские перчатки BoyBo"
+        catalog, _ = store_from_data(data)
+        result, links = ShopDialog(catalog).answer(["Слушай, нужны капы BoyBo в Симферополе"])
+        self.assertIn("не нашёл таких товаров", result)
+        self.assertEqual(links, [])
+        data["rows"][3]["title"] = "Капа BoyBo Basic"
+        catalog, _ = store_from_data(data)
+        result, links = ShopDialog(catalog).answer(["Слушай, нужны капы BoyBo в Симферополе"])
+        self.assertIn("Капа BoyBo Basic", result)
+        self.assertIn("300 ₽", result)
+        self.assertIn("Симферополь — доступно 2", result)
+        self.assertEqual(len(links), 1)
+
     def test_contacts_and_scope(self):
         _,links = ShopDialog(self.catalog).answer(["Какой телефон в Симферополе?"])
         self.assertEqual(links[-1]["href"],"tel:+70000000000")

@@ -34,7 +34,7 @@ class ReaderTest(unittest.TestCase):
 
     def test_zero_and_missing_are_distinct(self):
         cat=LiveCatalog({"склады":list(self.client.stores),"товары":[self.item]},self.client)
-        result=cat.answer(["Демо","А размер M?"],lambda _: '{"product":"01","variant":"M","warehouse":""}')
+        result=cat.answer(["Демо","А сколько в наличии размера M?"],lambda _: '{"product":"01","variant":"M","warehouse":""}')
         self.assertIn("Склад А — свободно 0.00",result)
         self.assertIn("Склад Б — в регистре нет строки",result)
         self.client.get.assert_called_once_with("/v1/stock",product=P,variant=V)
