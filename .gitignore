@@ -39,6 +39,7 @@
 !/docs/
 /docs/*
 !/docs/chat-model-stack.md
+!/docs/llm-speed-27b.md
 
 # Публичное описание и патч менеджерского поиска
 !/docs/manager-dialog.md
