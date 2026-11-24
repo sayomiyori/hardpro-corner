@@ -502,7 +502,7 @@ function Invoke-Op([string]$Op, $A) {
             if ($target.category.key -ne 'Document') { throw 'проверка заполнения только для документов' }
             $found = Get-ObjectByRef $target ([string]$A.ref)
             $result = Invoke-Any $found.object @('ПроверитьЗаполнение') @()
-            if ($result -is [array] -and $result.Count -eq 1) { $result = $result[0] }
+            while ($result -is [array] -and $result.Count -eq 1) { $result = $result[0] }
             $items = @()
             $note = $null
             try {
@@ -679,13 +679,9 @@ $readerPs.Runspace = $readerRunspace
 function Invoke-IdleTick {
     # Переподключение только когда клиент молчит: иначе initialize упрётся в 165 с
     if ($script:Queue.Count -gt 0) { return }
-    if ($null -eq $script:connection) {
-        if (((Get-Date) - $script:lastActivity).TotalSeconds -lt 60) { return }
-        # После неудачного коннекта не долбим кластер: пауза 5 минут
-        if ($null -ne $script:lastConnectFail -and ((Get-Date) - $script:lastConnectFail).TotalSeconds -lt 300) { return }
-        try { Connect-Base } catch { $script:lastConnectFail = Get-Date }
-        return
-    }
+    # Соединение поднимается только по запросу клиента: иначе initialize
+    # упрётся в 165-секундный коннект и сервер выпадет из агента
+    if ($null -eq $script:connection) { return }
     if (((Get-Date) - $script:lastKeepAlive).TotalSeconds -lt 120) { return }
     try {
         $probe = $script:connection.NewObject('Query')
@@ -701,8 +697,8 @@ $script:lastConnectFail = $null
 
 [Console]::Error.WriteLine('onec-mcp (COM) стартует, режим ' + $script:cfg.mode)
 
-# Долгий первый коннект случается до первого клиента, а не в его таймауте
-try { Connect-Base } catch { [Console]::Error.WriteLine('прогрев: ' + $_.Exception.Message) }
+# Прогрева на старте нет: initialize должен отвечать мгновенно, даже если база лежит.
+# Первый инструментальный вызов поднимет сессию сам.
 
 while (-not $script:Queue.IsCompleted) {
     $line = ''
