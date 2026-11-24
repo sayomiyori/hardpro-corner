@@ -1,11 +1,11 @@
-# bridge — Windows-сторона моста к 1С (COM)
+﻿# bridge — Windows-сторона моста к 1С (COM)
 
 Копия того, что развёрнуто в `E:\Work\Tools\onec-bridge`. Правки вносятся здесь,
 затем копируются на рабочую машину.
 
 | Файл | Куда | Роль |
 |---|---|---|
-| `onec-mcp.ps1` | `E:\Work\Tools\onec-bridge\` | MCP-сервер на COMConnector, 11 инструментов |
+| `onec-mcp.ps1` | `E:\Work\Tools\onec-bridge\` | MCP-сервер на COMConnector, 13 инструментов |
 | `link.mjs` | там же | держит `powershell` ↔ `ssh`, пауза до 60 с |
 | `start-link.cmd` | там же | ручной старт |
 | `config.example.json` | копия в `config.json` | база, mode, allow/deny, аудит |

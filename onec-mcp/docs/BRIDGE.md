@@ -1,4 +1,4 @@
-# Мост к 1С через COM (Windows → hardpro-llm)
+﻿# Мост к 1С через COM (Windows → hardpro-llm)
 
 База: `Розница`, `Srvr="192.168.1.195";Ref="base";`
 OData на этой базе не опубликован, а сеть 192.168.1.0/24 с сервера `hardpro-llm`
@@ -53,9 +53,16 @@ OData на этой базе не опубликован, а сеть 192.168.1.
 
 ## Инструменты
 
-`onec_status`, `onec_metadata`, `onec_describe`, `onec_query`, `onec_get`,
-`onec_create`, `onec_update`, `onec_post_document`, `onec_unpost_document`,
-`onec_mark_delete`, `onec_delete`.
+`onec_status`, `onec_metadata`, `onec_describe`, `onec_search`, `onec_query`,
+`onec_get`, `onec_tabular`, `onec_create`, `onec_update`, `onec_post_document`,
+`onec_unpost_document`, `onec_mark_delete`, `onec_delete`.
+
+- `onec_search` — поиск объектов метаданных по подстроке во всех категориях;
+  первый шаг, когда имя объекта неизвестно.
+- `onec_tabular` — строки табличной части документа (`Товары`, `Услуги`, ...)
+  с колонками и ссылками; чужое имя возвращает список существующих частей.
+- `postingReady` в `onec_status` — доступно ли из COM системное перечисление
+  режимов записи; `false` означает, что проведение на этой платформе отвалится.
 
 - `onec_create` / `onec_update` принимают `dryRun: true` — поля проверяются на живом
   объекте, `Записать()` не вызывается. Проверено на `Справочник.Номенклатура`.

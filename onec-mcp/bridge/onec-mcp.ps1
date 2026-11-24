@@ -306,6 +306,14 @@ function Get-ObjectByRef($Target, [string]$Ref) {
     return @{ ref = $refValue; object = $object }
 }
 
+function Invoke-Any($Object, [string[]]$Names, [object[]]$Arguments = @()) {
+    $last = $null
+    foreach ($n in $Names) {
+        try { return , (Invoke-ComMethod $Object $n $Arguments) } catch { $last = $_ }
+    }
+    throw $last
+}
+
 function Get-SystemEnum([string]$EnumName, [string]$ValueName) {
     $enum = Get-PropAny $script:connection @($EnumName, 'WriteMode')
     return Get-ComProperty $enum $ValueName
@@ -325,10 +333,14 @@ function Invoke-Op([string]$Op, $A) {
         'health' {
             $meta = Get-ComProperty $script:connection 'Metadata'
             $connectedAt = if ($script:connectedAt) { $script:connectedAt.ToString('o') } else { $null }
+            # Проверка, что системное перечисление режимов записи доступно из COM
+            $postReady = $false
+            try { $null = Get-SystemEnum 'РежимЗаписиДокумента' 'Проведение'; $postReady = $true } catch { }
             return @{
                 ok = $true; mode = $mode; database = $script:cfg.database
                 configuration = (Get-ComProperty $meta 'Name'); version = (Get-ComProperty $meta 'Version')
                 connectedAt = $connectedAt; uptimeSec = [int](((Get-Date) - $script:startedAt).TotalSeconds)
+                postingReady = $postReady
             }
         }
         'categories' {
@@ -484,6 +496,66 @@ function Invoke-Op([string]$Op, $A) {
             Invoke-ComMethod $found.object 'Удалить' | Out-Null
             return @{ ok = $true; object = $target.full; ref = (Get-UuidText $found.ref); deleted = $true }
         }
+        'search' {
+            $needle = ([string]$A.query).Trim()
+            if (-not $needle) { throw 'нужна подстрока query' }
+            $limit = 50
+            if ($null -ne $A.limit) { $limit = [int]$A.limit }
+            if ($limit -lt 1 -or $limit -gt 200) { throw 'limit 1..200' }
+            $hits = @()
+            $low = $needle.ToLower()
+            foreach ($c in $script:Categories) {
+                try { $collection = Get-MetadataCollection $c } catch { continue }
+                for ($i = 0; $i -lt (Invoke-ComMethod $collection 'Count'); $i++) {
+                    if ($hits.Count -ge $limit) { break }
+                    $md = Invoke-Any $collection @('Get', 'Получить') @($i)
+                    $name = Get-ComProperty $md 'Имя'
+                    if ($name.ToLower().Contains($low)) {
+                        $hits += @{ name = $name; full = ($c.full + '.' + $name); category = $c.key }
+                    }
+                }
+                if ($hits.Count -ge $limit) { break }
+            }
+            return @{ ok = $true; query = $needle; count = $hits.Count; objects = $hits }
+        }
+        'tabular' {
+            $target = Resolve-Object ([string]$A.object)
+            Assert-Allowed $target.full
+            $tableName = [string]$A.table
+            $tab = Get-ComProperty $target.md 'ТабличныеЧасти'
+            $table = Find-InCollection $tab $tableName
+            if ($null -eq $table) {
+                $names = @()
+                for ($i = 0; $i -lt (Invoke-ComMethod $tab 'Count'); $i++) {
+                    $names += Get-ComProperty (Invoke-Any $tab @('Get', 'Получить') @($i)) 'Имя'
+                }
+                throw ("нет табличной части $tableName; есть: " + ($names -join ', '))
+            }
+            $found = Get-ObjectByRef $target ([string]$A.ref)
+            $rowsColl = Get-ComProperty $found.object $tableName
+            $limit = 200
+            if ($null -ne $A.limit) { $limit = [int]$A.limit }
+            if ($limit -lt 1 -or $limit -gt 2000) { throw 'limit 1..2000' }
+            $attrNames = @()
+            $tAttrs = Get-ComProperty $table 'Реквизиты'
+            for ($i = 0; $i -lt (Invoke-ComMethod $tAttrs 'Count'); $i++) {
+                $attrNames += Get-ComProperty (Invoke-Any $tAttrs @('Get', 'Получить') @($i)) 'Имя'
+            }
+            $rows = @()
+            $total = [int](Invoke-ComMethod $rowsColl 'Count')
+            for ($i = 0; $i -lt [Math]::Min($limit, $total); $i++) {
+                $rowObj = Invoke-Any $rowsColl @('Получить', 'Get') @($i)
+                $row = [ordered]@{}
+                foreach ($n in $attrNames) {
+                    try { $row[$n] = Convert-Cell (Get-ComProperty $rowObj $n) } catch { }
+                }
+                $rows += $row
+            }
+            return @{
+                ok = $true; object = $target.full; table = $tableName
+                total = $total; returned = $rows.Count; columns = $attrNames; rows = $rows
+            }
+        }
         default { throw "неизвестная операция: $Op" }
     }
 }
@@ -518,6 +590,8 @@ $script:Tools = @(
     @{ name = 'onec_unpost_document'; description = 'Отменить проведение документа.'; inputSchema = New-Schema @{ object = @{ type = 'string' }; ref = @{ type = 'string' } } @('object', 'ref') }
     @{ name = 'onec_mark_delete'; description = 'Поставить или снять пометку удаления.'; inputSchema = New-Schema @{ object = @{ type = 'string' }; ref = @{ type = 'string' }; mark = @{ type = 'boolean'; description = 'true — пометить, false — снять' } } @('object', 'ref', 'mark') }
     @{ name = 'onec_delete'; description = 'Непосредственное удаление. Только при mode=admin.'; inputSchema = New-Schema @{ object = @{ type = 'string' }; ref = @{ type = 'string' } } @('object', 'ref') }
+    @{ name = 'onec_search'; description = 'Поиск объектов метаданных по подстроке во всех категориях. Первый шаг, когда имя объекта неизвестно.'; inputSchema = New-Schema @{ query = @{ type = 'string'; description = 'Подстрока имени, например Товар или Номенклатура' }; limit = @{ type = 'number'; description = 'по умолчанию 50, максимум 200' } } @('query') }
+    @{ name = 'onec_tabular'; description = 'Строки табличной части объекта (Товары, Услуги и т.д.): колонки, количество, до 200 строк.'; inputSchema = New-Schema @{ object = @{ type = 'string' }; ref = @{ type = 'string' }; table = @{ type = 'string'; description = 'Имя табличной части из onec_describe' }; limit = @{ type = 'number' } } @('object', 'ref', 'table') }
 )
 
 function Invoke-ToolCall([string]$Name, $ToolArgs) {
@@ -533,6 +607,8 @@ function Invoke-ToolCall([string]$Name, $ToolArgs) {
         'onec_unpost_document' = @{ op = 'unpost'; args = @{ object = $ToolArgs.object; ref = $ToolArgs.ref } }
         'onec_mark_delete' = @{ op = $(if ($ToolArgs.mark -eq $false) { 'unmark_delete' } else { 'mark_delete' }); args = @{ object = $ToolArgs.object; ref = $ToolArgs.ref } }
         'onec_delete' = @{ op = 'delete'; args = @{ object = $ToolArgs.object; ref = $ToolArgs.ref } }
+        'onec_search' = @{ op = 'search'; args = @{ query = $ToolArgs.query; limit = $ToolArgs.limit } }
+        'onec_tabular' = @{ op = 'tabular'; args = @{ object = $ToolArgs.object; ref = $ToolArgs.ref; table = $ToolArgs.table; limit = $ToolArgs.limit } }
     }
     if (-not $map.ContainsKey($Name)) { throw "нет инструмента: $Name" }
     $call = $map[$Name]

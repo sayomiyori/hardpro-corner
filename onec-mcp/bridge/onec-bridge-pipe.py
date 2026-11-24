@@ -6,17 +6,28 @@
 
 Сокет: ~/.state/onec-bridge.sock, права 0600, один клиент за раз.
 """
+import fcntl
 import os
 import select
 import socket
 import sys
 
 SOCK = os.path.expanduser("~/.state/onec-bridge.sock")
+LOCK = os.path.expanduser("~/.state/onec-bridge.lock")
 CHUNK = 65536
 
 
 def main():
     os.makedirs(os.path.dirname(SOCK), exist_ok=True)
+
+    # Один мост на хост: второй экземпляр молча уходит, чтобы не рвать сокет
+    lock_fd = os.open(LOCK, os.O_CREAT | os.O_RDWR, 0o600)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        sys.stderr.write("onec-bridge pipe: уже запущен, выхожу\n")
+        return 0
+
     try:
         os.unlink(SOCK)
     except FileNotFoundError:
