@@ -184,7 +184,8 @@ class VramWatcher(threading.Thread):
             time.sleep(0.5)
 
 
-def chat_stream(messages: list, max_tokens: int, seed: int, tools=None, tag_run: str = "") -> dict:
+def chat_stream(messages: list, max_tokens: int, seed: int, tools=None, tag_run: str = "",
+                *, request_options: dict | None = None) -> dict:
     payload = {
         "model": MODEL,
         "messages": messages,
@@ -198,6 +199,8 @@ def chat_stream(messages: list, max_tokens: int, seed: int, tools=None, tag_run:
     }
     if tools:
         payload["tools"] = tools
+    if request_options:
+        payload.update(request_options)
     start_pos = log_size()
     vw = VramWatcher()
     vw.start()
@@ -247,11 +250,12 @@ def chat_stream(messages: list, max_tokens: int, seed: int, tools=None, tag_run:
                     for tc in delta.get("tool_calls") or []:
                         tool_calls.append(tc)
                 chunks += 1
+        total_s = time.perf_counter() - t0
     except Exception as exc:  # noqa: BLE001
         return {"error": f"{type(exc).__name__}: {exc}", "tag_run": tag_run}
-    total_s = time.perf_counter() - t0
-    vw.stop_flag = True
-    vw.join(timeout=2)
+    finally:
+        vw.stop_flag = True
+        vw.join(timeout=2)
     text = "".join(text_parts)
     out = {
         "ttft_s": round(ttft, 3) if ttft is not None else None,

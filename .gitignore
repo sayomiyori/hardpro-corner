@@ -26,6 +26,7 @@
 /systemd/tuning-27b/*
 !/systemd/tuning-27b/README.md
 !/systemd/tuning-27b/bench.py
+!/systemd/tuning-27b/bench_context.py
 !/systemd/tuning-27b/run_suite.sh
 !/systemd/tuning-27b/exp_mtp.sh
 !/systemd/tuning-27b/rollback.sh
@@ -40,6 +41,7 @@
 !/docs/server-setup.md
 !/docs/chat-model-stack.md
 !/docs/llm-speed-27b.md
+!/docs/long-context-27b.md
 
 # Публичное описание и патч менеджерского поиска
 !/docs/manager-dialog.md
