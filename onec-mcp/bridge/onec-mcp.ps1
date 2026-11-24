@@ -521,6 +521,9 @@ function Invoke-Op([string]$Op, $A) {
                 }
             } catch {
                 # Не у всех конфигураций ПроверитьЗаполнение возвращает структуру
+                if ($result -is [bool]) {
+                    return @{ ok = $true; object = $target.full; ref = [string]$A.ref; fillCheckPassed = [bool]$result; problems = @(); count = 0 }
+                }
                 $note = 'результат без ПроверкаЭлементов: ' + ([string]$result)
             }
             return @{ ok = $true; object = $target.full; ref = [string]$A.ref; problems = $items; count = $items.Count; note = $note }
