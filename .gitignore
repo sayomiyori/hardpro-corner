@@ -45,6 +45,13 @@
 !/docs/manager-dialog.md
 !/docs/manager-dialog.patch
 
+# Устойчивость менеджерского канала к недоступности 1С и перезагрузкам
+!/docs/manager-link-recovery.md
+!/systemd/hardpro-vllm.service
+!/systemd/hardpro-link-guard.service
+!/systemd/hardpro-link-guard.timer
+!/systemd/link-guard.sh
+
 # Код проекта: шлюз, доска, агент, traceproxy, MCP 1С, обвязка Open WebUI
 !/hardpro-hub/
 !/onec-mcp/

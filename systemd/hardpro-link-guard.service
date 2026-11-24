@@ -1,0 +1,7 @@
+[Unit]
+Description=HARD-PRO guard for the 1C reader channel
+After=hardpro-onec-link.service
+
+[Service]
+Type=oneshot
+ExecStart=%h/.local/share/hardpro/bin/link-guard.sh

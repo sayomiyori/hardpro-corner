@@ -1,0 +1,21 @@
+[Unit]
+Description=HARD-PRO vLLM manager engine (Qwen3-14B-AWQ on GPU 0)
+Documentation=https://docs.vllm.ai
+After=network-online.target
+RequiresMountsFor=/srv/models
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=%h/.local/share/hardpro
+Environment=CUDA_DEVICE_ORDER=PCI_BUS_ID
+# UUID карты 0 из `nvidia-smi -L`; у второй карты своя служба.
+Environment=CUDA_VISIBLE_DEVICES=GPU-<uuid-карты-0>
+EnvironmentFile=%h/.config/hardpro-vllm/api.env
+EnvironmentFile=%h/.config/hardpro-vllm/model.env
+ExecStart=/bin/bash -lc 'exec %h/.local/share/hardpro/vllm/bin/vllm serve "$HARDPRO_MODEL" --served-model-name manager hardpro-manager --host 127.0.0.1 --port 8000 --api-key "$VLLM_API_KEY" --max-model-len 40960 --gpu-memory-utilization 0.92 --reasoning-parser qwen3 --default-chat-template-kwargs.enable_thinking false --enable-prefix-caching --disable-log-requests'
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=default.target
