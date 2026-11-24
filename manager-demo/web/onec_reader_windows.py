@@ -185,7 +185,13 @@ class SecureServer(HTTPServer):
             try:
                 self.retail = Retail(self.config)
             except Exception:
-                request.close()
+                # Без явного ответа клиент видит пустой сокет и не отличает сбой сеанса
+                # 1С от обрыва канала. Отдаём 503: вызывающая сторона перейдёт на выгрузку.
+                try:
+                    request.sendall(b"HTTP/1.1 503 Service Unavailable\r\n"
+                                    b"Content-Length: 0\r\nConnection: close\r\n\r\n")
+                finally:
+                    request.close()
                 return
         super().finish_request(request,client_address)
 

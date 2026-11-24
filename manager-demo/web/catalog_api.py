@@ -1,12 +1,15 @@
 """OpenAI-compatible catalogue interface for the two local pilot clients."""
 import copy
 import json
+import logging
 import os
 import runpy
 import secrets
 import sys
+import threading
 import time
 import uuid
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from pathlib import Path
 
@@ -14,8 +17,13 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from starlette.concurrency import run_in_threadpool
 
+log = logging.getLogger("hardpro.catalog")
+
 ROOT = Path.home() / ".local/share/hardpro"
 RELEASE = ROOT / "onec-pilot/full-release"
+SNAPSHOT = ROOT / "onec-pilot/full-catalog.json"
+LIVE_SNAPSHOT = ROOT / "onec-pilot/live-snapshot.json"
+MSK = timezone(timedelta(hours=3))
 sys.path.insert(0, str(RELEASE))
 from archive_catalog import Catalog
 
@@ -31,11 +39,51 @@ from manager_knowledge import competition_answer, definition_answer, merge_clari
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 models = {"manager": "hardpro-manager", "buyer": "hardpro-shop"}
 reader_config = os.environ.get("ONEC_READER_CONFIG")
-if not reader_config:
-    data = json.loads((ROOT / "onec-pilot/full-catalog.json").read_text())
-    archive = Catalog(data)
-    archive_date = data["момент"]
 keys = {role: os.environ[role.upper() + "_TOKEN"] for role in models}
+
+_snapshot = {"path": None, "mtime": 0.0, "stamp": "", "data": None}
+_saved_at = 0.0
+_link_down_until = 0.0
+_link_lock = threading.Lock()
+
+
+def snapshot_source():
+    """Свежий снимок из рабочей 1С, если он есть, иначе сохранённая выгрузка."""
+    for path in (LIVE_SNAPSHOT, SNAPSHOT):
+        try:
+            return path, path.stat().st_mtime
+        except OSError:
+            continue
+    raise OSError("нет сохранённой выгрузки каталога")
+
+
+def snapshot():
+    path, mtime = snapshot_source()
+    if _snapshot["path"] != path or _snapshot["mtime"] != mtime:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        _snapshot.update(path=path, mtime=mtime, stamp=data["момент"], data=data)
+    return _snapshot["stamp"], _snapshot["data"]
+
+
+def snapshot_catalog():
+    stamp, data = snapshot()
+    return Catalog(data), stamp
+
+
+def save_live(cat):
+    """Удачное чтение 1С переживает её отключение и перезапуск сервера."""
+    global _saved_at
+    if time.monotonic() - _saved_at < 300:
+        return
+    data = {"момент": datetime.now(MSK).strftime("%d.%m.%Y %H:%M МСК"),
+            "склады": list(cat.stores), "товары": cat.rows}
+    tmp = LIVE_SNAPSHOT.with_name(LIVE_SNAPSHOT.name + ".tmp")
+    tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, LIVE_SNAPSHOT)
+    _saved_at = time.monotonic()
+    log.warning("сохранён свежий снимок каталога: %d строк", len(cat.rows))
+
 
 
 def authorize(role, request):
@@ -56,6 +104,31 @@ def model_list(role: str, request: Request):
 def parse(system, question):
     return cli["ask"]([{"role": "system", "content": system}, {"role": "user", "content": question}],
                       vllm_key, json_output=True)
+
+
+def live_catalog(turns):
+    """Ответ по рабочей 1С. None означает, что канал не отвечает и нужен резерв."""
+    global _link_down_until
+    if time.monotonic() < _link_down_until:
+        return None
+    try:
+        cat = configured_reader(reader_config).session()
+    except OSError as exc:
+        with _link_lock:
+            _link_down_until = time.monotonic() + 120
+        log.warning("канал рабочей 1С не отвечает, отвечаю по выгрузке: %s", exc, exc_info=True)
+        return None
+    try:
+        save_live(cat)
+    except OSError as exc:
+        log.warning("снимок каталога не сохранён: %s", exc)
+    try:
+        return cat.answer(turns, lambda m: parse(m[0]["content"], m[1]["content"])).replace("\n", "  \n")
+    except OSError as exc:
+        with _link_lock:
+            _link_down_until = time.monotonic() + 120
+        log.warning("канал рабочей 1С оборвался во время ответа: %s", exc, exc_info=True)
+        return None
 
 
 def reply(role, turns):
@@ -79,13 +152,15 @@ def reply(role, turns):
         turns = [q.partition("\n")[2] for q in turns if q.startswith(f"shop:{parts[1]}:")]
         prefix = f"По данным сайта на {stamp}."
     elif reader_config:
-        reader = configured_reader(reader_config)
-        cat = reader.session()
-        return cat.answer(turns, lambda m: parse(m[0]["content"], m[1]["content"])).replace("\n", "  \n")
+        answer = live_catalog(turns)
+        if answer is not None:
+            return answer
+        cat, stamp = snapshot_catalog()
+        prefix = (f"Рабочая 1С сейчас не отвечает, отвечаю по последней выгрузке на {stamp}. "
+                  "Свежее наличие и брони не подтверждены.")
     else:
-        cat = copy.copy(archive)
-        cat.criteria = cat.criteria.copy()
-        prefix = f"По выгрузке на {archive_date}."
+        cat, stamp = snapshot_catalog()
+        prefix = f"По выгрузке на {stamp}."
     for question in turns:
         answer = cat.reply(question, lambda m: parse(m[0]["content"], m[1]["content"]))
     if role == "buyer":
@@ -115,8 +190,12 @@ async def complete(role: str, request: Request):
         raise HTTPException(400, "Нет вопроса")
     try:
         answer = await run_in_threadpool(reply, role, turns)
-    except (OSError, ValueError, RuntimeError, KeyError):
-        raise HTTPException(503, "Поиск временно недоступен. Повторите вопрос.")
+    except OSError as exc:
+        log.warning("источник каталога недоступен: %s", exc, exc_info=True)
+        raise HTTPException(503, "Источник каталога недоступен. Повторите вопрос.")
+    except (ValueError, RuntimeError, KeyError) as exc:
+        log.warning("вопрос не разобран: %s", exc, exc_info=True)
+        raise HTTPException(503, "Не удалось разобрать вопрос. Переформулируйте его.")
     base = dict(id="chatcmpl-" + uuid.uuid4().hex, created=int(time.time()), model=models[role])
     if not body.get("stream"):
         return {**base, "object": "chat.completion", "choices": [{"index": 0,
