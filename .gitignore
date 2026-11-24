@@ -197,3 +197,4 @@ Thumbs.db
 !onec-mcp/.env.example
 !openwebui-coding/.env.example
 !/lan-hub/models/
+!/docs/manager-qa-2026-11-25.md
