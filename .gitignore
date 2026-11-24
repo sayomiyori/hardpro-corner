@@ -22,6 +22,9 @@
 !/systemd/hardpro-media-vision.service.d/
 !/systemd/hardpro-media-vision.service.d/*.conf
 !/systemd/qwen38-models.ini
+!/systemd/tuning-14b/
+/systemd/tuning-14b/*
+!/systemd/tuning-14b/bench.py
 !/systemd/tuning-27b/
 /systemd/tuning-27b/*
 !/systemd/tuning-27b/README.md
@@ -42,6 +45,7 @@
 !/docs/chat-model-stack.md
 !/docs/llm-speed-27b.md
 !/docs/long-context-27b.md
+!/docs/tuning-manager-14b.md
 
 # Публичное описание и патч менеджерского поиска
 !/docs/manager-dialog.md
