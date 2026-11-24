@@ -1,18 +1,14 @@
 # Публичный репозиторий. Каждый новый путь добавляем после проверки содержимого.
 /*
 !/.gitignore
+!/.gitattributes
 !/AGENTS.md
 !/README.md
+!/STATUS.md
 
 # LAN-обвязка: исходники доски, агента, шлюза и trace-прокси
 !/lan-hub/
 !/lan-hub/**
-
-# Для вложенных файлов открыть родительский каталог, закрыть его содержимое
-# и разрешить только выбранные файлы. Пример для будущей публичной инструкции:
-# !/docs/
-# /docs/*
-# !/docs/overview.md
 
 # systemd-конфиги сервера hard-pro-llm: юниты, drop-in, установщик
 !/systemd/
@@ -35,9 +31,13 @@
 !/systemd/tuning-27b/rollback.sh
 !/systemd/tuning-27b/aggr.py
 
-# Отчёт о стеке чат-моделей (RAG, видео, голос)
+# Публичные статьи
 !/docs/
 /docs/*
+!/docs/README.md
+!/docs/catalog-assistant.md
+!/docs/local-media.md
+!/docs/server-setup.md
 !/docs/chat-model-stack.md
 !/docs/llm-speed-27b.md
 
@@ -62,7 +62,10 @@
 !/openwebui-errors-ru.md
 
 
-# Крупные и приватные выгрузки не публикуем
+# Локальные настройки и приватные выгрузки
+/onec-mcp/bridge/config.json
+/hardpro-hub/agent/mcp.json
+/lan-hub/agent/mcp.json
 codex_openwebui.json
 
 # Пилот поиска по публичным карточкам и инструкциям
@@ -183,7 +186,7 @@ build/
 .DS_Store
 Thumbs.db
 
-# ���������� �� ������ ����: ��������� ���������� ���������
+# Разрешённые шаблоны окружения и каталоги профилей моделей
 !/hardpro-hub/models/
 !onec-mcp/.env.example
 !openwebui-coding/.env.example

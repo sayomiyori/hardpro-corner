@@ -1,18 +1,13 @@
-﻿# bridge — Windows-сторона моста к 1С (COM)
+# Windows-сторона COM-моста
 
-Копия того, что развёрнуто в `E:\Work\Tools\onec-bridge`. Правки вносятся здесь,
-затем копируются на рабочую машину.
+[Схема и эксплуатация](../docs/BRIDGE.md) · [Транспорты 1С](../docs/TRANSPORTS.md)
 
-| Файл | Куда | Роль |
-|---|---|---|
-| `onec-mcp.ps1` | `E:\Work\Tools\onec-bridge\` | MCP-сервер на COMConnector, 14 инструментов |
-| `link.mjs` | там же | держит `powershell` ↔ `ssh`, пауза до 60 с |
-| `start-link.cmd` | там же | ручной старт |
-| `config.example.json` | копия в `config.json` | база, mode, allow/deny, аудит |
-| `onec-bridge-pipe.py` | `~/​.local/bin/` на hardpro-llm | UNIX-сокет ↔ stdio SSH |
+| Файл | Назначение |
+| --- | --- |
+| `onec-mcp.ps1` | MCP-сервер на `V83.COMConnector`, 14 инструментов |
+| `link.mjs` | Держит PowerShell и SSH, повторяет подключение с паузой до 60 с |
+| `start-link.cmd` | Ручной запуск |
+| `config.example.json` | Шаблон локального `config.json` с режимом `readonly` |
+| `onec-bridge-pipe.py` | Принимает SSH-сеанс на Linux и связывает его с UNIX-сокетом |
 
-Требования: 64-битный PowerShell, зарегистрированный `V83.COMConnector`
-(здесь 8.3.27.1688), DPAPI-файл с учётными данными 1С, ключ SSH на hardpro-llm,
-Node 20+ для `link.mjs`.
-
-Схема и эксплуатация — [`../docs/BRIDGE.md`](../docs/BRIDGE.md).
+Нужны 64-битный PowerShell, зарегистрированный COMConnector, Node.js 20+, SSH-ключ и локальный DPAPI-файл для пользователя, от которого работает мост. Подставьте данные своей тестовой базы в копию шаблона и храните её вне Git.

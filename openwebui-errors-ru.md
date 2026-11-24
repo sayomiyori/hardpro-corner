@@ -1,10 +1,12 @@
-# Open WebUI + llm-host — разбор ошибок по слоям
+# Диагностика Open WebUI по слоям
+
+[К репозиторию](README.md) · [Open WebUI для разработки](openwebui-coding/README.md) · [systemd](systemd/README.md)
 
 Документ отвечает на три вопроса по каждой ошибке: **что произошло**, **где слабое место**, **чем проверить**. Ссылки на файлы и переменные — по реальному стеку: браузер → Open WebUI (aiohttp) → прокси (nginx / Cloudflare / Traefik) → бэкенд (llm-host / vLLM / llama.cpp / Ollama).
 
 ---
 
-## 0. Карта слоёв — где вообще может рваться
+## Слои и признаки сбоя
 
 ```
 [браузер] --WS/SSE--> [Open WebUI: aiohttp] --HTTP stream--> [прокси] --HTTP--> [backend]
@@ -22,7 +24,7 @@
 
 ---
 
-## 1. Транспортный слой — что означает каждая строка
+## Ошибки транспорта
 
 ### 1.1 `TransferEncodingError: Not enough data to satisfy transfer length header`
 
@@ -87,7 +89,7 @@
 
 ---
 
-## 2. Ошибки внутри SSE — бэкенд отвечает, но чанк несёт `error`
+## Ошибки внутри SSE
 
 Это отдельный класс: HTTP-статус `200`, стрим идёт, в одном из чанков лежит `{"error": {...}}`. WebUI часто показывает его как «пустой ответ» или общий `Connection Error`.
 
@@ -108,7 +110,7 @@ curl -sN ... | grep -o '"error":{[^}]*}' | head
 
 ---
 
-## 3. Специфика Open WebUI
+## Особенности Open WebUI
 
 | Ошибка / симптом | Что значит | Слабое место |
 |---|---|---|
@@ -123,7 +125,7 @@ curl -sN ... | grep -o '"error":{[^}]*}' | head
 
 ---
 
-## 4. Где смотреть логи
+## Где смотреть журналы
 
 ```bash
 # WebUI — тут видно исключение aiohttp целиком, со стектрейсом
@@ -141,7 +143,7 @@ docker inspect --format '{{.State.OOMKilled}} {{.State.ExitCode}} {{.RestartCoun
 
 ---
 
-## 5. Дерево диагностики
+## Порядок диагностики
 
 ```
 Ошибка видна?
@@ -158,7 +160,7 @@ docker inspect --format '{{.State.OOMKilled}} {{.State.ExitCode}} {{.RestartCoun
 
 ---
 
-## 6. Минимальный набор настроек, при котором стрим не рвётся
+## Настройки потоковой выдачи
 
 ```nginx
 location / {

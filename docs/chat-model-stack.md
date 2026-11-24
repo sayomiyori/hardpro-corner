@@ -1,18 +1,20 @@
 # Документы, изображения, видео и голос в чате Open WebUI
 
-Обновлено 21 ноября 2026 года. Отчёт о том, как в Open WebUI включили работу с
+[Документация](README.md) · [Текущий статус](../STATUS.md)
+
+Проверка 21 ноября 2026 года. Отчёт о том, как в Open WebUI включили работу с
 документами, мультимодальность и голос на локальном стеке. Настройки
 окружения с реальными ключами хранятся на сервере вне репозитория.
 
-## Состояние
+## Результаты контрольных запросов 21 ноября
 
-| Задача | Модель | Статус |
+| Задача | Модель | Результат |
 | --- | --- | --- |
-| Текст и код | Qwen3.8-Flash-Next | работает |
-| Текст, код и документы (RAG) | Qwen3.8-Flash-Next | работает |
-| Изображения и видео | Qwen3.8-27B с mmproj («медиа-модель») | работает |
-| Голосовой ввод | faster-whisper + whisper-small (CTranslate2) | работает |
-| Озвучка ответов | браузерный синтез на стороне клиента | работает |
+| Текст и код | Qwen3.8-Flash-Next | Проверено |
+| Текст, код и документы (RAG) | Qwen3.8-Flash-Next | Проверено |
+| Изображения и видео | Qwen3.8-27B с mmproj («медиа-модель») | Проверено |
+| Голосовой ввод | faster-whisper + whisper-small (CTranslate2) | Проверено |
+| Озвучка ответов | браузерный синтез на стороне клиента | Проверено |
 
 Flash-Next — текстовая модель: в её весах нет проектора mmproj, поэтому
 изображения и видео принимает отдельная 27B-модель с mmproj. Для неё
@@ -21,10 +23,10 @@ Flash-Next — текстовая модель: в её весах нет про
 
 ## Роутер llama.cpp
 
-Чат-модели работают через роутер `llama serve` с пресетом `--models-preset`:
+При проверке 21 ноября чат-модели работали через роутер `llama serve` с пресетом `--models-preset`:
 три модели, `--models-max 1` держит в памяти одну. Запрос к другой модели
 автоматически выгружает текущую и загружает нужную. Пресет задаёт только пути,
-общие параметры — в drop-in юнита, см. `systemd/hardpro-coding.service.d/95-router.conf`.
+общие параметры — в drop-in юнита, см. [drop-in роутера](../systemd/hardpro-coding.service.d/95-router.conf).
 После 5 минут простоя модель выгружается (`--sleep-idle-seconds 300`).
 
 Замер контрольной генерации со сменой модели:
@@ -36,10 +38,10 @@ Flash-Next — текстовая модель: в её весах нет про
 | Huihui-Qwen3.8-27B-abliterated-Q5_K | 5,5 с |
 | возврат на Qwen3.8-Flash-Next | 12,9 с |
 
-Первый токен после смены модели занимает от 15 секунд (27B читает ~20 ГБ)
+Отдельно зафиксировали холодную загрузку. Первый токен занимал от 15 секунд (27B читает ~20 ГБ)
 до 90 секунд (Flash-Next читает 93 ГБ с NVMe). У Flash-Next эксперты
 MoE выгружаются в ОЗУ через tensor override, поэтому модель помещается
-в связке из двух RTX 3090 вместе с остальными сервисами.
+в связке из двух RTX 3090 вместе с остальными сервисами. На проверке 24 ноября юнит роутера был выключен. [Текущий статус](../STATUS.md)
 
 ## Документы (RAG)
 
@@ -53,7 +55,7 @@ MoE выгружаются в ОЗУ через tensor override, поэтому 
 `sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2` (28 файлов)
 в локальный кэш на модельном NVMe и переменные окружения службы:
 
-```bash
+```dotenv
 HF_HOME=/srv/models/huggingface
 RAG_EMBEDDING_MODEL=sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
 RAG_EMBEDDING_MODEL_AUTO_UPDATE=False
@@ -87,7 +89,9 @@ VAD-фильтр включён). Контрольный WAV вернул ста
 транскрипции. Озвучка ответов — браузерный Web Speech API на стороне
 клиента, серверного движка не требует.
 
-## Как повторить
+## Как повторить на отдельном стенде
+
+Команды рассчитаны на уже существующие юниты и проверенные пути к весам. Для медиа нужен ffmpeg в пути, заданном [drop-in](../systemd/hardpro-media-vision.service.d/40-ffmpeg.conf).
 
 ```bash
 # включить роутер чат-моделей
@@ -95,11 +99,11 @@ mkdir -p ~/.config/systemd/user/hardpro-coding.service.d
 cp systemd/hardpro-coding.service.d/95-router.conf ~/.config/systemd/user/hardpro-coding.service.d/
 cp systemd/qwen38-models.ini /srv/models/hard-pro-content/coding/work/
 systemctl --user daemon-reload && systemctl --user restart hardpro-coding.service
-curl -s 127.0.0.1:8081/v1/models | jq -r '.data[].id'
+curl --fail http://127.0.0.1:8081/v1/models | jq -r '.data[].id'
 
-# ffmpeg для приёма видео
-curl -sSL -o /tmp/ff.tar.xz https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz
-tar xf /tmp/ff.tar.xz -C /tmp && cp /tmp/ffmpeg-*-linux64-gpl/bin/{ffmpeg,ffprobe} ~/.local/bin/
+# ffmpeg и ffprobe установите заранее, затем проверьте путь
+test -x ~/.local/bin/ffmpeg && test -x ~/.local/bin/ffprobe
+mkdir -p ~/.config/systemd/user/hardpro-media-vision.service.d
 cp systemd/hardpro-media-vision.service.d/40-ffmpeg.conf ~/.config/systemd/user/hardpro-media-vision.service.d/
 systemctl --user daemon-reload && systemctl --user restart hardpro-media-vision.service
 ```

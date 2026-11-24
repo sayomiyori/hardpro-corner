@@ -1,9 +1,10 @@
-# LAN-обвязка вокруг локальных моделей
+# LAN Hub — ранняя версия
 
-Самодостаточный контур для своей сети: доска моделей с замерами, агент-разработка
+[HARD-PRO Hub](../hardpro-hub/README.md) · [Текущий статус](../STATUS.md)
+
+Первый вариант контура для локальной сети: доска моделей с замерами, агент-разработка
 с доступом к серверу, след модели в каждом ответе и перенос контекста из Codex.
-Собрано и проверено на Ubuntu 24.04 + 2×RTX 3090, но привязано только к
-OpenAI-совместимым бэкендам (llama.cpp) и Open WebUI.
+Собран на Ubuntu 24.04 с двумя RTX 3090. Для нового развёртывания используйте [HARD-PRO Hub](../hardpro-hub/README.md): обе версии устанавливаются в `~/hardpro`.
 
 ## 1. Что внутри
 
@@ -18,13 +19,12 @@ OpenAI-совместимым бэкендам (llama.cpp) и Open WebUI.
 | `bin/` | `hp-search.py` (поиск по индексу), `sync-mcp.sh` |
 | `install.sh` | установщик: venv, Node, TLS, systemd-юниты |
 
-Порты по умолчанию: `9090` — единственный вход (шлюз), `9443`/`9444` — доска и агент
-на loopback, `8775` — Open WebUI на loopback.
+Порты в этой версии: LAN-шлюз `8775`, доска и агент `9443`/`9444` на loopback. `9090` используется trace-прокси. Установщик по умолчанию направляет чат на loopback-порт `8765`. Другой порт задаётся через `GW_WEBUI_PORT`.
 
 ## 2. Установка
 
 ```bash
-scp -r lan-hub user@llm-host:~/
+scp -r lan-hub llm-host:~/
 ssh llm-host 'cd ~/lan-hub && LAN_IP=192.0.2.10 bash install.sh'
 ```
 
@@ -36,18 +36,18 @@ ssh llm-host 'cd ~/lan-hub && LAN_IP=192.0.2.10 bash install.sh'
 
 ```bash
 systemctl --user is-active hardpro-hub hardpro-agent hardpro-gateway
-curl -s -u "$USER:$PASS" http://192.0.2.10:9090/hub/healthz
+curl --fail -u "$HUB_USER" http://192.0.2.10:8775/hub/healthz
 ```
 
 ## 3. Доска
 
-`http://<адрес>:9090/hub/` — карточки бэкендов, кнопки замера (prompt tok/s,
+`http://<адрес>:8775/hub/` — карточки бэкендов, кнопки замера (prompt tok/s,
 генерация tok/s, TTFT), история прогонов в `~/hardpro/hub/bench.sqlite`, GPU, счётчики
 workspace. Замер — реальная генерация, а не оценка: цифры видны в интерфейсе.
 
 ## 4. Агент
 
-`http://<адрес>:9090/agent/` — чат с трейсом. Инструменты: `shell` (bash на сервере),
+`http://<адрес>:8775/agent/` — чат с трейсом. Инструменты: `shell` (bash на сервере),
 `read_file`, `write_file`, `edit_file`, `list_dir`, `grep`, `http_fetch`, `web_search`,
 `model_list`, `gpu_status`, `skill_*` и MCP-серверы как `mcp__<server>__<tool>`.
 
@@ -117,8 +117,7 @@ TA_SKIP_TAIL=hardpro-agent
 powershell -ExecutionPolicy Bypass -File .\migrate\codex-export.ps1 -SshHost llm-host
 ```
 
-Собирает `~/.codex` (sessions, memories, skills, plugins, config.toml) и проекты,
-пакует, кладёт на сервер и запускает импорт. Импорт раскладывает всё в
+Собирает выбранные материалы Codex и проекты. Проверьте состав перед переносом и держите архив вне Git. Импорт раскладывает всё в
 `~/hardpro/workspace`, собирает `index.sqlite` (проекты, сессии, скиллы, MCP,
 полнотекстовый индекс переписки) и пишет `AGENTS.md`.
 
@@ -128,14 +127,13 @@ powershell -ExecutionPolicy Bypass -File .\migrate\codex-export.ps1 -SshHost llm
 ~/hardpro/bin/hp-search.py skills --grep wp
 ```
 
-## 8. Безопасность
+## Доступ из локальной сети
 
-- Наружу открыт один порт; внутренние сервисы слушают `127.0.0.1`.
+- LAN-шлюз слушает настроенный адрес, внутренние сервисы — `127.0.0.1`.
 - Доска и агент закрыты HTTP Basic, пароль генерируется при установке.
 - `Agent` исполняет команды на сервере от своего пользователя: это его смысл.
-  Ограничивать доступ нужно на уровне сети и пароля, а не только промптом.
-- TLS-сертификат самоподписанный и опционален: шлюз по умолчанию отдаёт http
-  внутри сети, как и Open WebUI за ним.
+  Доступ ограничивается на уровне сети и пароля.
+- Шлюз по умолчанию обслуживает HTTP. Для работы с учётными данными используйте доверенный HTTPS-вход или SSH.
 
 ## 9. Ограничения
 

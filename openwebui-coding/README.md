@@ -1,14 +1,15 @@
-# Open WebUI — coding desk
+# Open WebUI для разработки
 
-Всё, что ниже, ставится поверх твоей инсталляции. Docker-Compose — единственное,
-что нельзя сделать кликами; остальное — либо env, либо галочки в UI.
+[К репозиторию](../README.md) · [Чат и медиа](../docs/chat-model-stack.md) · [Диагностика](../openwebui-errors-ru.md)
 
-## 1. Поднять
+Отдельный набор настроек для работы с длинным кодом в Open WebUI: Docker Compose, свёртка контекста, фильтр и индикатор над полем ввода.
+
+## Запуск
 
 ```powershell
-cd "C:\Users\user\Documents\Проект по умолчанию\openwebui-coding"
+Set-Location openwebui-coding
 Copy-Item .env.example .env
-# правишь .env под своё окно, потом:
+# Укажите параметры выбранной модели в .env.
 docker compose up -d
 # локальный ollama рядом:
 docker compose --profile local up -d
@@ -19,7 +20,7 @@ docker compose --profile local up -d
 Если Open WebUI уже стоит иначе (pip, другой compose, чужой сервер) — переноси
 только `environment:` из `docker-compose.yml`, значения те же.
 
-## 2. Контекст — то, ради чего всё
+## Контекст
 
 Три уровня, работают вместе.
 
@@ -42,7 +43,7 @@ UI-путь: `Settings → Admin → Interface → Context Compaction`.
 
 **c) Плашка + жёсткая обрезка.**
 
-Плашка над полем ввода — `context-plaque.user.js` (см. раздел 7).
+Плашка над полем ввода — [context-plaque.user.js](context-plaque.user.js).
 Функция `functions/bench_context_guard.py` только режет промпт: кладёшь в
 `Admin Panel → Functions → +`, включаешь. `SHOW_STATUS` выключен — статус в
 сообщениях больше не нужен, плашка рисует всё сама.
@@ -50,7 +51,7 @@ UI-путь: `Settings → Admin → Interface → Context Compaction`.
 Valves: `ENABLE_TRIM`, `MAX_PROMPT_TOKENS`, `KEEP_LAST_MESSAGES`,
 `WINDOWS_JSON` (переопределить окно: `{"qwen3-coder": 131072}`).
 
-## 3. Интерфейс под код
+## Интерфейс
 
 `Settings → Interface` (дефолты уже в compose, это если правишь руками):
 
@@ -67,7 +68,7 @@ Valves: `ENABLE_TRIM`, `MAX_PROMPT_TOKENS`, `KEEP_LAST_MESSAGES`,
 - **Title Auto-Generation / Tags / Follow-Ups** — выкл. Экономит токены и время.
 - **Render Markdown in User Messages** — выкл. Твой код не превращается в разметку.
 
-## 4. Модели
+## Модели
 
 `Settings → Admin → Models → Model Defaults`:
 
@@ -87,7 +88,7 @@ Keep diffs minimal; show full file only when asked.
 Для локального Ollama **не** трогай `OLLAMA_CONTEXT_LENGTH` в UI — он живёт в
 `docker-compose.yml`, профиль `local`.
 
-## 5. Файлы и код в контексте
+## Документы и код
 
 `Admin → Documents` (RAG):
 
@@ -97,7 +98,7 @@ Keep diffs minimal; show full file only when asked.
 - Для целых репозиториев: `BYPASS_EMBEDDING_AND_RETRIEVAL=true` и грузи файлы
   как контекст напрямую. RAG не нужен, когда файл и так влезает.
 
-## 7. Плашка над полем ввода
+## Индикатор контекста
 
 `context-plaque.user.js` — тонкая полоса прямо над «Отправить сообщение»:
 
@@ -105,7 +106,7 @@ Keep diffs minimal; show full file only when asked.
 3.4k / 128k  ▬▬▬▬▬▬▬▬▬▬▬▬▬▬▭▭▭▭▭▭  27%
 ```
 
-Цифры настоящие: скрипт читает `context_usage` из `GET /api/v1/chats/<id>`
+Скрипт читает `context_usage` из `GET /api/v1/chats/<id>`
 (там `tokens`, `estimated_tokens`, `threshold`, `percent`). Если эндпоинт молчит —
 считает по отрисованным сообщениям и помечает это в тултипе.
 
@@ -117,7 +118,7 @@ Keep diffs minimal; show full file only when asked.
    `==UserScript==` шапки) → Enter. Живёт до перезагрузки страницы.
 
 Скрипт хост-независимый: `@match *://*/*` + тихая проверка `/api/config`.
-Работает на `llm-host`, на любом порту, по http и https, под реверс-прокси
+Поддерживает HTTP, HTTPS и реверс-прокси
 с подпутём (`/openwebui/c/<id>` — префикс вычисляется из `location.pathname`).
 На чужих сайтах скрипт сам выключается через 10 секунд, если `#chat-input`
 так и не появился, а `/api/config` не ответил как Open WebUI.
@@ -138,7 +139,7 @@ Keep diffs minimal; show full file only when asked.
 модели на `llm-host` отличается, поправь строку в таблице или
 `CFG.fallbackWindow`.
 
-## 8. Чеклист после первого запуска
+## Проверка после запуска
 
 1. `Admin Panel → Functions` — вставить `bench_context_guard.py`, включить.
    `SHOW_STATUS` оставь выключенным, `ENABLE_TRIM` включённым.
@@ -148,15 +149,14 @@ Keep diffs minimal; show full file only when asked.
 5. Поставить `context-plaque.user.js`, открыть чат, увидеть полосу над вводом.
 6. Отправить длинный чат, убедиться что плашка растёт и обрезка срабатывает.
 
-## Гочи
+## Типовые ошибки
 
 | Симптом | Причина |
 |---|---|
 | Пустой ответ модели | `num_ctx` слишком мал, обрезает tool-схемы |
-| Метр не появился | функция выключена глобально, или модель не прислала `usage` |
+| Индикатор отсутствует | скрипт выключен или не нашёл поле ввода. Проверьте консоль браузера |
 | `prompt is too long` | порог компакции выше реального окна модели |
-| Саммари врёт | `CONTEXT_COMPACTION_MODEL` слабый — поставь модель побольше |
+| Сводка искажает переписку | `CONTEXT_COMPACTION_MODEL` не справился со сводкой. Проверьте её на выбранной модели |
 | Код ломается на вставке | `Rich Text Input` не выключен |
 
-`AIOHTTP_CLIENT_TIMEOUT=600` уже в конфиге — долгие reasoning-модели не рвутся
-на 5 минутах.
+В [Compose](docker-compose.yml) задан таймаут `AIOHTTP_CLIENT_TIMEOUT=600`. Для длинной генерации также проверьте таймауты прокси и бэкенда.

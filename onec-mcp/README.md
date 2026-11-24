@@ -1,9 +1,10 @@
-# onec-mcp
+# MCP для 1С:Предприятия
 
-MCP-сервер для 1С:Предприятие 8. Даёт агентам и моделям в hardpro-llm чтение и запись базы
-через стандартный интерфейс OData плюс проведение документов через HTTP-сервис 1С.
+[К репозиторию](../README.md) · [Транспорты](docs/TRANSPORTS.md) · [COM-мост](docs/BRIDGE.md)
 
-Node 20+, ноль зависимостей: `node src/server.mjs` — и всё. Ни `npm install`, ни сборки.
+Агент подключается к 1С:Предприятию 8 через стандартный OData или через COM на Windows. Ниже настройки OData. Для COM используйте [инструкцию по мосту](docs/BRIDGE.md).
+
+Для OData нужен Node.js 20+. Точка входа — `node src/server.mjs`.
 
 ## Что доступно агенту
 
@@ -22,7 +23,7 @@ Node 20+, ноль зависимостей: `node src/server.mjs` — и всё
 | `onec_service_call` | любой метод HTTP-сервиса | write |
 | `onec_delete` | удаление (DELETE) | admin |
 
-Все мутации понимают `dryRun: true` — возвращают готовый HTTP-запрос, ничего не меняя.
+В OData `dryRun: true` поддерживают создание, изменение, пакетное создание и удаление. Вызовы проведения и HTTP-сервиса выполняются напрямую. Для пробного подключения используйте `readonly`.
 
 ## Подготовка 1С
 
@@ -30,31 +31,31 @@ Node 20+, ноль зависимостей: `node src/server.mjs` — и всё
   в свойствах — «Использование в стандартном интерфейсе OData» (галочка публикации).
 - Опубликовать базу на веб-сервере (IIS/Apache) с включённым OData и HTTP-сервисами.
 - Завести отдельного пользователя `hardpro_mcp` с ролью только на нужные объекты; полные права не давать.
-- Проверить руками: `http://host/base/odata/standard.odata/$metadata` открывается в браузере под этим пользователем.
+- Проверить руками: `https://onec.example.invalid/demo/odata/standard.odata/$metadata` открывается в браузере под этим пользователем.
 - Добавить HTTP-сервис `hardpro` (Общие → HTTP-сервисы), корневой URL `hardpro`,
   шаблоны `/post`, `/unpost`, `/version`, и вставить код из
   [`onec/HTTPService-hardpro.bsl`](onec/HTTPService-hardpro.bsl).
-- Если сервис торчит наружу — заполнить `ОжидаемыйТокен()` в BSL и тот же секрет в `ONEC_SERVICE_TOKEN`.
+- Для HTTP-сервиса согласуйте `ОжидаемыйТокен()` с `ONEC_SERVICE_TOKEN`, используйте TLS и ограничьте доступ к тестовой публикации.
 
 ## Установка
 
 ```bash
-scp -r onec-mcp hardpro-llm:~/hardpro/util/
-ssh hardpro-llm 'node --version && node ~/hardpro/util/onec-mcp/smoke.mjs'
+cd onec-mcp
+node --version
+npm test
 ```
 
-Самопроверка без живой 1С — `node test-integration.mjs`: поднимает mock-OData на localhost,
-прогоняет метаданные, чтение, создание, правку, удаление, проведение и отказы по режимам.
+`npm test` запускает `test-integration.mjs` с mock-OData на localhost. Тест проверяет метаданные, чтение, создание, правку, удаление, проведение и отказы по режимам.
 
 `smoke.mjs` проверяет сеть, авторизацию и публикацию OData до всякого MCP:
 
 ```bash
-export ONEC_URL=http://1c.local/erp/odata/standard.odata
-export ONEC_USER=hardpro_mcp ONEC_PASSWORD='***'
+export ONEC_URL=https://onec.example.invalid/demo/odata/standard.odata
+# ONEC_USER и ONEC_PASSWORD загрузите из закрытого окружения.
 node smoke.mjs Catalog_Номенклатура
 ```
 
-## Подключение к hardpro
+## Подключение к агенту
 
 Файл `~/hardpro/workspace/mcp/servers.json` — блок из
 [`mcp-servers.snippet.json`](mcp-servers.snippet.json), затем:
@@ -88,16 +89,16 @@ node smoke.mjs Catalog_Номенклатура
 
 `ONEC_READONLY=1` жёстко режет запись, что бы ни лежало в `ONEC_MODE`.
 
-## Правила, которые сервер держит сам
+## Режимы и аудит
 
 - Режим `readonly` блокирует POST/PATCH/DELETE на уровне обработчика, до сети.
 - `delete` недоступен без `ONEC_MODE=admin`.
 - Имя объекта проверяется по синтаксису, `ONEC_DENY`, `ONEC_ALLOW` и наличию в `$metadata`;
   при опечатке возвращаются похожие имена — модель не гадает.
 - Вызовы идут строго последовательно: 1С плохо переносит параллельные записи в один объект.
-- Каждый вызов пишется в аудит-журнал: инструмент, аргументы, результат, миллисекунды.
+- При настроенном `ONEC_AUDIT` журнал получает имя инструмента, аргументы, результат и время. Храните журнал локально с ограниченным доступом.
 
-## Чего OData не умеет
+## Границы OData
 
 - Проведение документов и движения — только через HTTP-сервис (`onec_post_document`).
 - Транзакций нет: пакетная запись — это N независимых запросов, откат делать руками.
