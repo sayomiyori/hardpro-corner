@@ -5,7 +5,7 @@
 
 | Файл | Куда | Роль |
 |---|---|---|
-| `onec-mcp.ps1` | `E:\Work\Tools\onec-bridge\` | MCP-сервер на COMConnector, 13 инструментов |
+| `onec-mcp.ps1` | `E:\Work\Tools\onec-bridge\` | MCP-сервер на COMConnector, 14 инструментов |
 | `link.mjs` | там же | держит `powershell` ↔ `ssh`, пауза до 60 с |
 | `start-link.cmd` | там же | ручной старт |
 | `config.example.json` | копия в `config.json` | база, mode, allow/deny, аудит |

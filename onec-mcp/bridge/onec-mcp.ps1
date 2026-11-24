@@ -496,6 +496,35 @@ function Invoke-Op([string]$Op, $A) {
             Invoke-ComMethod $found.object 'Удалить' | Out-Null
             return @{ ok = $true; object = $target.full; ref = (Get-UuidText $found.ref); deleted = $true }
         }
+        'check_fill' {
+            $target = Resolve-Object ([string]$A.object)
+            Assert-Allowed $target.full
+            if ($target.category.key -ne 'Document') { throw 'проверка заполнения только для документов' }
+            $found = Get-ObjectByRef $target ([string]$A.ref)
+            $result = Invoke-Any $found.object @('ПроверитьЗаполнение') @()
+            if ($result -is [array] -and $result.Count -eq 1) { $result = $result[0] }
+            $items = @()
+            $note = $null
+            try {
+                $checks = Get-ComProperty $result 'ПроверкаЭлементов'
+                for ($i = 0; $i -lt [int](Invoke-ComMethod $checks 'Количество'); $i++) {
+                    $el = Invoke-Any $checks @('Получить', 'Get') @($i)
+                    $item = @{}
+                    foreach ($pair in @(@('description', 'Описание'), @('attribute', 'ПроверяемыйРеквизит'), @('checkType', 'Тип'), @('ref', 'Ссылка'))) {
+                        try {
+                            $value = Get-ComProperty $el $pair[1]
+                            if ($pair[0] -eq 'ref') { $item[$pair[0]] = Convert-Cell $value }
+                            else { $item[$pair[0]] = [string]$value }
+                        } catch { }
+                    }
+                    $items += $item
+                }
+            } catch {
+                # Не у всех конфигураций ПроверитьЗаполнение возвращает структуру
+                $note = 'результат без ПроверкаЭлементов: ' + ([string]$result)
+            }
+            return @{ ok = $true; object = $target.full; ref = [string]$A.ref; problems = $items; count = $items.Count; note = $note }
+        }
         'search' {
             $needle = ([string]$A.query).Trim()
             if (-not $needle) { throw 'нужна подстрока query' }
@@ -590,6 +619,7 @@ $script:Tools = @(
     @{ name = 'onec_unpost_document'; description = 'Отменить проведение документа.'; inputSchema = New-Schema @{ object = @{ type = 'string' }; ref = @{ type = 'string' } } @('object', 'ref') }
     @{ name = 'onec_mark_delete'; description = 'Поставить или снять пометку удаления.'; inputSchema = New-Schema @{ object = @{ type = 'string' }; ref = @{ type = 'string' }; mark = @{ type = 'boolean'; description = 'true — пометить, false — снять' } } @('object', 'ref', 'mark') }
     @{ name = 'onec_delete'; description = 'Непосредственное удаление. Только при mode=admin.'; inputSchema = New-Schema @{ object = @{ type = 'string' }; ref = @{ type = 'string' } } @('object', 'ref') }
+    @{ name = 'onec_check_fill'; description = 'Проверить готовность документа к проведению без записи (ПроверитьЗаполнение): список проблем.'; inputSchema = New-Schema @{ object = @{ type = 'string' }; ref = @{ type = 'string' } } @('object', 'ref') }
     @{ name = 'onec_search'; description = 'Поиск объектов метаданных по подстроке во всех категориях. Первый шаг, когда имя объекта неизвестно.'; inputSchema = New-Schema @{ query = @{ type = 'string'; description = 'Подстрока имени, например Товар или Номенклатура' }; limit = @{ type = 'number'; description = 'по умолчанию 50, максимум 200' } } @('query') }
     @{ name = 'onec_tabular'; description = 'Строки табличной части объекта (Товары, Услуги и т.д.): колонки, количество, до 200 строк.'; inputSchema = New-Schema @{ object = @{ type = 'string' }; ref = @{ type = 'string' }; table = @{ type = 'string'; description = 'Имя табличной части из onec_describe' }; limit = @{ type = 'number' } } @('object', 'ref', 'table') }
 )
@@ -607,6 +637,7 @@ function Invoke-ToolCall([string]$Name, $ToolArgs) {
         'onec_unpost_document' = @{ op = 'unpost'; args = @{ object = $ToolArgs.object; ref = $ToolArgs.ref } }
         'onec_mark_delete' = @{ op = $(if ($ToolArgs.mark -eq $false) { 'unmark_delete' } else { 'mark_delete' }); args = @{ object = $ToolArgs.object; ref = $ToolArgs.ref } }
         'onec_delete' = @{ op = 'delete'; args = @{ object = $ToolArgs.object; ref = $ToolArgs.ref } }
+        'onec_check_fill' = @{ op = 'check_fill'; args = @{ object = $ToolArgs.object; ref = $ToolArgs.ref } }
         'onec_search' = @{ op = 'search'; args = @{ query = $ToolArgs.query; limit = $ToolArgs.limit } }
         'onec_tabular' = @{ op = 'tabular'; args = @{ object = $ToolArgs.object; ref = $ToolArgs.ref; table = $ToolArgs.table; limit = $ToolArgs.limit } }
     }
@@ -622,6 +653,8 @@ $script:Out = New-Object IO.StreamWriter([Console]::OpenStandardOutput(), (New-O
 $script:Out.AutoFlush = $true
 $script:Queue = New-Object 'System.Collections.Concurrent.BlockingCollection[string]'
 $script:lastKeepAlive = Get-Date
+$script:lastActivity = Get-Date
+$script:lastConnectFail = $null
 
 function Write-Line([string]$Text) {
     $script:Out.WriteLine($Text)
@@ -644,8 +677,13 @@ $readerPs.Runspace = $readerRunspace
 [void]$readerPs.BeginInvoke()
 
 function Invoke-IdleTick {
+    # Переподключение только когда клиент молчит: иначе initialize упрётся в 165 с
+    if ($script:Queue.Count -gt 0) { return }
     if ($null -eq $script:connection) {
-        try { Connect-Base } catch { }
+        if (((Get-Date) - $script:lastActivity).TotalSeconds -lt 60) { return }
+        # После неудачного коннекта не долбим кластер: пауза 5 минут
+        if ($null -ne $script:lastConnectFail -and ((Get-Date) - $script:lastConnectFail).TotalSeconds -lt 300) { return }
+        try { Connect-Base } catch { $script:lastConnectFail = Get-Date }
         return
     }
     if (((Get-Date) - $script:lastKeepAlive).TotalSeconds -lt 120) { return }
@@ -654,6 +692,8 @@ function Invoke-IdleTick {
         Set-ComProperty $probe 'Text' 'ВЫБРАТЬ 1 КАК Один'
         Invoke-ComMethod $probe 'Выполнить' | Out-Null
         $script:lastKeepAlive = Get-Date
+$script:lastActivity = Get-Date
+$script:lastConnectFail = $null
     } catch {
         Close-Base
     }
@@ -672,6 +712,8 @@ while (-not $script:Queue.IsCompleted) {
         Invoke-IdleTick
         continue
     }
+    $script:lastActivity = Get-Date
+$script:lastConnectFail = $null
     $text = $line.Trim()
     if (-not $text) { continue }
     $sw = [Diagnostics.Stopwatch]::StartNew()
@@ -710,7 +752,7 @@ while (-not $script:Queue.IsCompleted) {
                     $message = $_.Exception.Message
                     $sw.Stop()
                     Write-Audit $toolName $request.params.arguments $false $sw.ElapsedMilliseconds $message
-                    if ($message -match 'HRESULT|COM|RPC|сеанс|Соединени') { Close-Base }
+                    if ($message -match '0x80010108|0x800706BA|0x800706BE|RPC|сеанс был заверш|Соединение с сервером') { Close-Base }
                     $response = @{ jsonrpc = '2.0'; id = $request.id; result = @{ content = @(@{ type = 'text'; text = $message }); isError = $true } }
                 }
             }
