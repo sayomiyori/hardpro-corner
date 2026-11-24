@@ -11,11 +11,11 @@ set -e
 TAG="${1:?spec-type, например draft-mtp}"
 NMAX="${2:-2}"
 HP="${HP_PYTHON:-$HOME/.local/share/hardpro/vllm/bin/python}"
-PF="${HP_MODELS_FILE:-$HOME/hardpro/models/profiles.json}"
+export HP_MODELS_FILE="${HP_MODELS_FILE:-$HOME/hardpro/models/profiles.json}"
 MODEL_ID="hardpro-abliterated-27b"
 PORT="8084"
 
-cp "$PF" "$PF.bak.$(date +%s)"
+cp "$HP_MODELS_FILE" "$HP_MODELS_FILE.bak.$(date +%s)"
 
 # правка каталога: n_ctx 65536 + spec-флаги (idempotent: args собираем заново)
 "$HP" - "$TAG" "$NMAX" "$MODEL_ID" <<'PYEOF'
@@ -45,7 +45,6 @@ print("profile updated:", tag, nmax)
 PYEOF
 
 # рестарт только 27B штатным способом
-export HP_MODELS_FILE="$PF"
 "$HP" "$HOME/hardpro/bin/hp-model.py" stop "$MODEL_ID"
 "$HP" "$HOME/hardpro/bin/hp-model.py" launch "$MODEL_ID"
 
