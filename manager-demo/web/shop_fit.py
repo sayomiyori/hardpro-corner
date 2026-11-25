@@ -30,6 +30,10 @@ def read_measurements(phrase):
     return found
 
 
+def matches_height(variant, height):
+    return height.is_integer() and str(int(height)) in re.findall(r"\b(\d{3})\s*см\b", variant)
+
+
 def guide(title, variants, measures, has_chart=False):
     """Return explanation and an optional catalogue token for the recommended size."""
     if re.search(r"боксерк|борцовк|ботинк|обувь", title):

@@ -193,6 +193,46 @@ class AssistantTest(unittest.TestCase):
         self.assertIn("Не нашёл",answer)
         self.assertIsNone(dialog.cart)
 
+    def test_order_keeps_latest_per_item_sizes_quantity_and_store(self):
+        data=feed()
+        data["rows"].append({"product":40,"sku":85,"title":"Рашгард Demo","article":"DEMO-40","variant":"L",
+            "price_cents":140000,"sevastopol":2,"simferopol":2})
+        data["rows"][6]["simferopol"] = 2
+        dialog=ShopDialog(store_from_data(data)[0])
+        answer,_=dialog.answer([
+            "Собери заказ: рашгард и шорты в Севастополе", "Размер M", "Рашгард L, шорты M",
+            "2 рашгарда", "А в Симферополе?", "Да, добавь этот комплект в корзину",
+        ])
+        self.assertIn("4 300 ₽",answer)
+        self.assertEqual(dialog.cart,{"city":"Симферополь","items":[
+            {"product":50,"sku":6,"qty":1,"price_cents":150000},
+            {"product":40,"sku":85,"qty":2,"price_cents":140000},
+        ]})
+
+    def test_revised_glove_weight_never_reuses_the_previous_offer(self):
+        turns=["Собери комплект для бокса: перчатки 12 oz, бинты 4 м и капа в Симферополе"]
+        dialog=ShopDialog(self.catalog)
+        dialog.answer(turns)
+        self.assertEqual(dialog.cart["items"][0]["sku"],1)
+        answer,_=dialog.answer([*turns,"А 14 унций?","Добавь в корзину"])
+        self.assertIn("Не нашёл: Перчатки",answer)
+        self.assertIsNone(dialog.cart)
+        dialog.answer([*turns,"А 14 унций?","Тогда 12 oz","Добавь в корзину"])
+        self.assertEqual(dialog.cart["items"][0]["sku"],1)
+
+    def test_body_measurements_require_a_verified_size_in_the_kit(self):
+        data=feed()
+        for original,sku in ((4,85),(6,86)):
+            data["rows"].append(dict(data["rows"][original],sku=sku,variant="L (175 см)"))
+        catalog,_=store_from_data(data)
+        turns=["Собери заказ: рашгард и шорты размера M в Севастополе"]
+        dialog=ShopDialog(catalog)
+        answer,_=dialog.answer([*turns,"Рост 173, грудь 95, талия 82","Добавь в корзину"])
+        self.assertIn("без подходящей ростовки",answer)
+        self.assertIsNone(dialog.cart)
+        dialog.answer([*turns,"Рост 175"])
+        self.assertEqual({item["sku"] for item in dialog.cart["items"]},{85,86})
+
     def test_fit_asks_for_measurements_then_uses_verified_shoe_table(self):
         data=feed()
         data["rows"].append({"product":70,"sku":71,"title":"Боксерки Nike Machomai 3","article":"QA",
