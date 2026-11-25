@@ -296,12 +296,14 @@ class ShopDialog:
             return result, links
         code = codes[0]
         details = getattr(self.cat,"details",{}).get(code,{})
-        facts = [f"{label} — {details[key]}" for key,label in (("brand","бренд"),("material","материал")) if details.get(key)]
+        facts = [f"бренд {details['brand']}"] if details.get("brand") else []
+        if details.get("material"):
+            facts.append(f"материал — {details['material']}")
         product = self.cat.products[code]
         title = normalize(product["товар"])
         if "fairtex" in title and "bgv1" in title:
             facts.append("натуральная кожа и трёхслойный наполнитель по описанию Fairtex")
-        text = ("Для сравнения с другими моделями можно учесть характеристики этой карточки — " + ", ".join(facts) + ". "
+        text = ("У этой модели " + ", ".join(facts) + ". "
                 if facts else "В карточке указана текущая розничная цена выбранного варианта. ")
         text += ("Себестоимость и наценку магазин не публикует. "
                  "Могу подобрать вариант дешевле, если укажете бюджет.")
@@ -375,6 +377,8 @@ class ShopDialog:
                         continue
                     if sport[1]!="ММА" and not re.search(r"бокс|(?:\d+\s*oz)", title):
                         continue
+                if slot=="Шорты" and sport and sport[1] in {"ММА","грэпплинга"} and re.search(r"тайск|муай.?тай",title):
+                    continue
                 key = row["код"]
                 if key not in best or row["price_cents"]<best[key]["price_cents"]:
                     best[key] = row
@@ -403,8 +407,9 @@ class ShopDialog:
         total = sum(row["price_cents"]*qty for _,row,_,qty in ranked)
         confirmed = [(slot,row,exact or normalize(row["вариант"]) in {"стандарт","стандартный","стандарт, стандарт"},qty)
                      for slot,row,exact,qty in ranked]
-        complete = not missing and all(exact for _,_,exact,_ in confirmed)
-        lines.append(f"Сумма найденных позиций {rub(total)}." if complete else
+        exact_prices = all(exact for _,_,exact,_ in confirmed)
+        complete = not missing and exact_prices
+        lines.append(f"Сумма найденных позиций {rub(total)}." if exact_prices else
                      f"Сумма найденных позиций от {rub(total)}. Цена зависит от варианта.")
         budget = budget_limit(phrase)
         if budget is not None:
@@ -421,10 +426,12 @@ class ShopDialog:
                 lines.append("Уточните магазин для добавления комплекта в корзину.")
         elif not missing and BUILD_ORDER.search(phrase):
             lines.append("Уточните размеры или вес, чтобы подтвердить варианты для корзины.")
+        elif not missing and "одежд" in phrase:
+            lines.append("Подскажите нужные размеры. Если не уверены, напишите рост и обхваты груди, талии и бёдер.")
         if ADD_CART.search(phrase) and not self.cart and not missing and not complete:
             lines.append("Подтвердите размеры или вес, чтобы добавить комплект в корзину.")
         cards = []
-        for _,row,exact,quantity in (confirmed if complete else ranked):
+        for _,row,exact,quantity in confirmed:
             card = dict(link(row, exact, self.city), price=rub(row["price_cents"]) if exact else "от " + rub(row["price_cents"]))
             if quantity > 1:
                 card["facts"] = [f"В комплекте · {quantity} шт."]

@@ -206,6 +206,15 @@ class AssistantTest(unittest.TestCase):
         self.assertIn("EU 44.5",reply)
         self.assertEqual(links[0]["href"],"/shop/product?id=70&sku=71")
 
+    def test_mma_clothing_excludes_thai_boxing_shorts(self):
+        data=feed()
+        data["rows"].append({"product":80,"sku":81,"title":"Шорты для тайского бокса Demo","article":"QA",
+            "variant":"M","price_cents":100000,"sevastopol":2,"simferopol":0})
+        dialog=ShopDialog(store_from_data(data)[0])
+        reply,links=dialog.answer(["Подбери комплект одежды для ММА в Севастополе"])
+        self.assertIn("обхваты груди",reply)
+        self.assertEqual(links[1]["title"],"Шорты Demo")
+
     def test_price_explanation_uses_storefront_details(self):
         data=feed()
         data["product_details"]=[{"product":10,"brand":"Demo","material":"Кожа","size_chart":True}]
