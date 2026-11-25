@@ -180,6 +180,43 @@ class AssistantTest(unittest.TestCase):
         self.assertIn("Для покупки 5 шт. в одном магазине не хватает остатка", answer)
         self.assertEqual(links[0]["href"], "/shop/product?id=10&sku=2")
 
+    def test_order_plan_carries_positions_quantity_price_and_store(self):
+        dialog=ShopDialog(self.catalog)
+        reply,cards=dialog.answer(["Собери заказ: 2 рашгарда и шорты размера M в Севастополе"])
+        self.assertIn("4 100 ₽",reply)
+        self.assertEqual(cards[1]["facts"],["В комплекте · 2 шт."])
+        self.assertEqual(dialog.cart,{"city":"Севастополь","items":[
+            {"product":50,"sku":6,"qty":1,"price_cents":150000},
+            {"product":40,"sku":5,"qty":2,"price_cents":130000},
+        ]})
+        answer,_=dialog.answer(["Собери заказ из красных перчаток, бинтов и шлема в Севастополе"])
+        self.assertIn("Не нашёл",answer)
+        self.assertIsNone(dialog.cart)
+
+    def test_fit_asks_for_measurements_then_uses_verified_shoe_table(self):
+        data=feed()
+        data["rows"].append({"product":70,"sku":71,"title":"Боксерки Nike Machomai 3","article":"QA",
+            "variant":"Черный, 44.5 р","price_cents":100000,"sevastopol":2,"simferopol":0})
+        catalog,_=store_from_data(data)
+        dialog=ShopDialog(catalog)
+        dialog.start_from_product_page({"product":70,"sku":71,"city":"Севастополь"})
+        reply,_=dialog.answer(["Какой размер мне подойдёт?"])
+        self.assertIn("длину большей стопы",reply)
+        reply,links=dialog.answer(["Какой размер мне подойдёт?","27,3 см"])
+        self.assertIn("EU 44.5",reply)
+        self.assertEqual(links[0]["href"],"/shop/product?id=70&sku=71")
+
+    def test_price_explanation_uses_storefront_details(self):
+        data=feed()
+        data["product_details"]=[{"product":10,"brand":"Demo","material":"Кожа","size_chart":True}]
+        catalog,_=store_from_data(data)
+        dialog=ShopDialog(catalog)
+        dialog.start_from_product_page({"product":10,"sku":1,"city":"Севастополь"})
+        answer,links=dialog.answer(["Почему этот товар столько стоит?"])
+        self.assertIn("материал — Кожа",answer)
+        self.assertIn("Себестоимость и наценку магазин не публикует",answer)
+        self.assertEqual(links[0]["price"],"2 500 ₽")
+
     def test_photo_and_link_use_selected_variant(self):
         dialog = ShopDialog(self.catalog)
         _, links = dialog.answer([

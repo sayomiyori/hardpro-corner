@@ -216,6 +216,7 @@ Thumbs.db
 !/manager-demo/qa/equipment-slang-50.json
 !/docs/manager-equipment-slang.md
 !/manager-demo/web/shop_dialog.py
+!/manager-demo/web/shop_fit.py
 !/manager-demo/web/shop_knowledge.py
 !/manager-demo/web/shop-knowledge.json
 !/manager-demo/web/site_catalog.py

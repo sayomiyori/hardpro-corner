@@ -82,6 +82,8 @@ def answer(turns, snapshot, context=None):
     result = {"answer": message, "links": links, "as_of": stamp, "discard_turn": message == HELP}
     if dialog.display is not None:
         result["display"] = dialog.display
+    if dialog.cart is not None:
+        result["cart"] = dialog.cart
     return result
 
 

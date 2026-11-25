@@ -73,6 +73,18 @@ def store_from_data(data):
     stamp = datetime.fromisoformat(data["as_of"]).astimezone(ZoneInfo("Europe/Moscow"))
     catalog = StoreCatalog({"склады": STORES, "товары": rows})
     catalog.contacts = contacts
+    catalog.details = {}
+    for item in data.get("product_details", []):
+        if not isinstance(item, dict) or type(item.get("product")) is not int:
+            continue
+        key = f'P{item["product"]}'
+        if key not in catalog.products:
+            continue
+        catalog.details[key] = {
+            name: item[name] for name in ("brand", "material")
+            if isinstance(item.get(name), str) and 0 < len(item[name]) <= 160 and not re.search(r"[<>\r\n]", item[name])
+        }
+        catalog.details[key]["size_chart"] = item.get("size_chart") is True
     catalog.sections = [
         (section["id"], section["title"]) for section in data.get("sections", [])
         if isinstance(section, dict) and type(section.get("id")) is int and 0 < section["id"] < 10**10
