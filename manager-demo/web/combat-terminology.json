@@ -1,0 +1,1439 @@
+{
+  "reviewed_at": "2026-11-25",
+  "families": {
+    "striking": "Ударные дисциплины",
+    "grappling": "Борьба, грэпплинг и ММА",
+    "traditional": "Традиционные и национальные дисциплины",
+    "shared": "Общие термины и спорные запросы"
+  },
+  "sources": {
+    "nist-ounce": {
+      "title": "NIST — перевод массовых унций в граммы",
+      "url": "https://www.nist.gov/pml/special-publication-811/nist-guide-si-appendix-b-conversion-factors/nist-guide-si-appendix-b8",
+      "type": "reference"
+    },
+    "hp-mt-style": {
+      "title": "HARD-PRO — MT-Style-101, варианты и описание",
+      "url": "https://hard-pro.ru/bokserskie-perchatki-hard-pro-mt-style-101.html",
+      "type": "catalog"
+    },
+    "ultimatum-ounce": {
+      "title": "Ultimatum Boxing — унции и посадка перчатки",
+      "url": "https://ultimatum.store/community/blog/polezno-znat/uncii-v-bokserskikh-perchatkakh-i-kak-pravilno-vybrat-razmer",
+      "type": "manufacturer"
+    },
+    "hayabusa-weight": {
+      "title": "Hayabusa — назначение и масса боксёрских перчаток",
+      "url": "https://www.hayabusafight.com/blogs/community/choosing-the-right-boxing-glove-weight-for-training-or-competition",
+      "type": "manufacturer"
+    },
+    "world-boxing-rules": {
+      "title": "World Boxing — правила соревнований",
+      "url": "https://worldboxing.org/competitions/competition-rules/",
+      "type": "federation"
+    },
+    "expertboxing-usage": {
+      "title": "ExpertBoxing — обсуждение экипировки",
+      "url": "https://www.expertboxing.ru/osnovy-boksa/obzor-boksyorskih-perchatok",
+      "type": "usage"
+    },
+    "vale-tudo-usage": {
+      "title": "MMARedForum — разговорные названия экипировки",
+      "url": "https://forum.valetudo.ru/showthread.php?page=665&t=32779",
+      "type": "usage"
+    },
+    "lion-weight-usage": {
+      "title": "LION ACADEMY — публичный канал с примерами обозначения массы",
+      "url": "https://t.me/s/academy_lion/692",
+      "type": "usage"
+    },
+    "fightgear-usage": {
+      "title": "r/fightgear — обсуждение маркировки и требований залов",
+      "url": "https://www.reddit.com/r/fightgear/comments/1rliufo/how_many_of_your_gyms_enforce_glove_oz_when/",
+      "type": "usage"
+    },
+    "bjj-spats-usage": {
+      "title": "r/bjj — употребление термина spats",
+      "url": "https://www.reddit.com/r/bjj/comments/c1phry",
+      "type": "usage"
+    },
+    "fairtex-gloves-guide": {
+      "title": "Fairtex — конструкция перчаток для бокса и муайтай",
+      "url": "https://www.fairtex.com/blogs/news/muay-thai-gloves-vs-boxing-gloves-key-differences",
+      "type": "manufacturer"
+    },
+    "vfs-equipment": {
+      "title": "Всероссийская федерация самбо — экипировка",
+      "url": "https://sambo.ru/ekipirovka/",
+      "type": "federation"
+    },
+    "tatami-gi-sizes": {
+      "title": "Tatami Fightwear — пример размерной сетки Gi",
+      "url": "https://us.tatamifightwear.com/collections/bjj-gis-under-97-99/products/estilo-black-label-black-on-black",
+      "type": "manufacturer"
+    },
+    "hp-catalog": {
+      "title": "HARD-PRO — каталог и виды спорта",
+      "url": "https://hard-pro.ru/catalog/",
+      "type": "catalog"
+    },
+    "hp-brands": {
+      "title": "HARD-PRO — марки в каталоге",
+      "url": "https://hard-pro.ru/brendyi/",
+      "type": "catalog"
+    },
+    "fbrk-gear": {
+      "title": "Федерация бокса Республики Крым — боксёрская экипировка",
+      "url": "https://boxing-fbc.ru/soveti-trenerov/bokserskaya-ekipirovka/",
+      "type": "usage"
+    },
+    "fbr-rules": {
+      "title": "Федерация бокса России — документы по олимпийскому боксу",
+      "url": "https://rusboxing.ru/olympic-boxing/documents",
+      "type": "federation"
+    },
+    "ifma-rules": {
+      "title": "IFMA — правила соревнований",
+      "url": "https://muaythai.sport/wp-content/uploads/2026/05/IFMA-Rules-and-Regulations-v3.057_110526.pdf",
+      "type": "federation"
+    },
+    "rmtf-rules": {
+      "title": "Федерация муайтай России — правила вида спорта",
+      "url": "https://rmtf.ru/wp-content/uploads/2024/01/PRAVILA_muajtaj_2024.pdf",
+      "type": "federation"
+    },
+    "fairtex-guards": {
+      "title": "Fairtex — защитная экипировка муайтай",
+      "url": "https://th.fairtex.com/collections/all-protectives-muay-thai",
+      "type": "manufacturer"
+    },
+    "fairtex-coach": {
+      "title": "Fairtex — тренерское снаряжение",
+      "url": "https://th.fairtex.com/collections/coaching-gear",
+      "type": "manufacturer"
+    },
+    "wako-rules": {
+      "title": "WAKO — обзор правил кикбоксинга",
+      "url": "https://www.wako.sport/rules-overview",
+      "type": "federation"
+    },
+    "kick-ru": {
+      "title": "Минспорт России — правила кикбоксинга, раздел об экипировке",
+      "url": "https://www.consultant.ru/document/cons_doc_LAW_433530/d6fb83ce9a68391daa46e652a8337d56b4ffe48b/",
+      "type": "regulation"
+    },
+    "kick-calendar": {
+      "title": "Федерация кикбоксинга России — положения турниров",
+      "url": "https://fkr.lsport.net/Page/d8ff46d4-0280-4c7f-8d8e-adc894bf3beb",
+      "type": "federation"
+    },
+    "savate-gear": {
+      "title": "Французская федерация савата — руководство по экипировке",
+      "url": "https://www.ffsavate.com/content/uploads/2023/07/ffsavate-GUIDE_Equipement-Instances.pdf",
+      "type": "federation"
+    },
+    "iwuf-sanda": {
+      "title": "IWUF — спортивная дисциплина Sanda",
+      "url": "https://iwuf.org/en/sport-wushu/competitive-wushu/sanda/",
+      "type": "federation"
+    },
+    "iwuf-taolu": {
+      "title": "IWUF — спортивная дисциплина Taolu",
+      "url": "https://iwuf.org/en/sport-wushu/competitive-wushu/taolu/",
+      "type": "federation"
+    },
+    "iwuf-rules": {
+      "title": "IWUF — правила саньда и таолу",
+      "url": "https://www.iwuf.org/en/news/gjwl/2024/0914/8955.html",
+      "type": "federation"
+    },
+    "mma-ru": {
+      "title": "Союз ММА России — правила СБЕ (ММА)",
+      "url": "https://mmaunion.ru/media/data/Files/Pravila_SBE_MMA.pdf",
+      "type": "federation"
+    },
+    "venum-rash": {
+      "title": "Venum — рашгарды для ММА и No-Gi",
+      "url": "https://eu.venum.com/collections/rashguard-mma",
+      "type": "manufacturer"
+    },
+    "uww-pankration": {
+      "title": "UWW — правила панкратиона",
+      "url": "https://cdn.uww.org/2025-08/uww_pankration_rules_-_2025.08.pdf",
+      "type": "federation"
+    },
+    "uww-wrestling": {
+      "title": "UWW — требования к форме спортивной борьбы",
+      "url": "https://cdn.uww.org/2026-01/03_uniform_regulations.pdf",
+      "type": "federation"
+    },
+    "uww-disciplines": {
+      "title": "UWW — перечень дисциплин",
+      "url": "https://uww.org/disciplines",
+      "type": "federation"
+    },
+    "uww-grappling": {
+      "title": "UWW — форма Grappling и Grappling Gi",
+      "url": "https://cdn.uww.org/2025-05/gp_uniform_guidelines_2025_0.pdf",
+      "type": "federation"
+    },
+    "sambo-rules": {
+      "title": "ВФС — правила спортивного и боевого самбо",
+      "url": "https://sambo.ru/wp-content/uploads/2026/10/pravila-vida-sporta-sambo-s-izm.-i-dopolneniyami.pdf",
+      "type": "federation"
+    },
+    "sambo-gear": {
+      "title": "ВФС — экипировка и производители",
+      "url": "https://sambo.ru/ekipirovka/",
+      "type": "federation"
+    },
+    "ijf-judogi": {
+      "title": "IJF — дзюдоги и его элементы",
+      "url": "https://ijf.org/news/judogi-much-more-than-armour",
+      "type": "federation"
+    },
+    "judo-ru": {
+      "title": "Минспорт России — правила дзюдо, опубликованные региональной федерацией",
+      "url": "https://judo-pnz.ru/wp-content/plugins/judo-pnz-core/assets/documents/pravila-dzyudo-2026.pdf",
+      "type": "regulation"
+    },
+    "ibjjf-uniform": {
+      "title": "IBJJF — официальные требования к Gi и No-Gi",
+      "url": "https://ibjjf.com/uniform",
+      "type": "federation"
+    },
+    "jujitsu-calendar": {
+      "title": "Минспорт России — положения по джиу-джитсу 2026",
+      "url": "https://www.minsport.gov.ru/neolimpijskie-vidy-sporta-2026/dzhiu-dzhitsu-2026/",
+      "type": "regulation"
+    },
+    "wt-kreugi": {
+      "title": "World Taekwondo — правила керуги",
+      "url": "https://www.worldtaekwondo.org/att_file/documents/WT%20Competition%20Rules%20and%20Interpretation_September%201%2C%202023.pdf",
+      "type": "federation"
+    },
+    "wt-approval": {
+      "title": "World Taekwondo — система признания экипировки",
+      "url": "https://www.worldtaekwondo.org/att_file_up/partners_suppliers/2024/WT%20Recognition%20System_January%202025.pdf",
+      "type": "federation"
+    },
+    "itf-2026": {
+      "title": "ИТФ — турнирные правила 2026, разделы 6 и 14",
+      "url": "https://itf-russia.ru/wp-content/uploads/2026/07/itf-tournament-rules-2026-russian.pdf",
+      "type": "federation"
+    },
+    "itf-russia": {
+      "title": "Минспорт России — положение по тхэквондо ИТФ 2026",
+      "url": "https://storage.minsport.gov.ru/cms-uploads/cms/Thekvondo_ITF_Polozhenie_2026_fb5a562dea.pdf",
+      "type": "regulation"
+    },
+    "gtf-russia": {
+      "title": "Минспорт России — положения по тхэквондо ГТФ",
+      "url": "https://www.minsport.gov.ru/thekvondo-gtf-2/",
+      "type": "regulation"
+    },
+    "mft-russia": {
+      "title": "Минспорт России — правила тхэквондо МФТ",
+      "url": "https://www.consultant.ru/document/cons_doc_LAW_365617/",
+      "type": "regulation"
+    },
+    "wkf-docs": {
+      "title": "WKF — документы и правила ката и кумитэ",
+      "url": "https://www.wkf.net/documents",
+      "type": "federation"
+    },
+    "wkf-approved": {
+      "title": "WKF — официальные списки формы и защиты",
+      "url": "https://www.wkf.net/approved",
+      "type": "federation"
+    },
+    "iko-gear": {
+      "title": "IKO Kyokushinkaikan — список защитной экипировки",
+      "url": "https://www.kyokushinkaikan.org/en/news/prictlist.pdf",
+      "type": "federation"
+    },
+    "kudo-ru": {
+      "title": "Федерация кудо России — правила вида спорта",
+      "url": "https://kudo.ru/wp-content/uploads/2026/09/pravila-kudo_s-izm.16.09.2026.pdf",
+      "type": "federation"
+    },
+    "kudo-gear": {
+      "title": "KUDOWEAR — каталог экипировки для кудо",
+      "url": "https://kudowear.ru/catalog/ekipirovka-kudo/",
+      "type": "manufacturer"
+    },
+    "arb-ru": {
+      "title": "Федерация армейского рукопашного боя России — правила АРБ",
+      "url": "https://ardrf.ru/upload/iblock/05e/ubg41int21leos4500fyy5nfj304zdud.pdf",
+      "type": "federation"
+    },
+    "rb-ru": {
+      "title": "Всероссийская федерация рукопашного боя — правила Минспорта № 439",
+      "url": "https://rffrb.ru/wp-content/uploads/2025/06/Pravila-rukopashnogo-boya-utverzhdyonnye-Prikazom-Minsporta-Rossii-439-ot-18-iyunya-2025-goda.pdf",
+      "type": "regulation"
+    },
+    "rb-gear": {
+      "title": "Всероссийская федерация рукопашного боя — костюм",
+      "url": "https://rffrb.ru/odezhda-dlya-rukopashnogo-boya/kimono-dlya-rukopashnogo-boya/",
+      "type": "federation"
+    },
+    "aikikai-faq": {
+      "title": "Айкикай — справочные материалы Хомбу Додзё",
+      "url": "https://aikikai.or.jp/faq/",
+      "type": "federation"
+    },
+    "kendo-faq": {
+      "title": "Всеяпонская федерация кэндо — вопросы об экипировке",
+      "url": "https://www.kendo.or.jp/en/faq/",
+      "type": "federation"
+    },
+    "sumo-rules": {
+      "title": "International Sumo Federation — правила",
+      "url": "https://ifs-sumo.org/ifs-regulations-c2.html",
+      "type": "federation"
+    },
+    "wcf-rules": {
+      "title": "Всемирная федерация капоэйры — регламент соревнований",
+      "url": "https://www.capoeira.ws/uploads/files/competition-rules-202426.pdf",
+      "type": "federation"
+    },
+    "ros-sambo": {
+      "title": "РОССАМБО — написание товарных названий",
+      "url": "https://ros-sambo.ru/katalog/ekipirovka-sambo",
+      "type": "usage"
+    },
+    "market-shin": {
+      "title": "Fightwear — употребление «шингарды» в каталоге защиты",
+      "url": "https://fightwear.ru/zashchita/shinguards.html",
+      "type": "usage"
+    },
+    "karategi-market": {
+      "title": "Karate-gi.ru — написание «каратэги» в каталоге производителя",
+      "url": "https://karate-gi.ru/catalog/k-sh-d",
+      "type": "manufacturer"
+    },
+    "jjif-code": {
+      "title": "JJIF — спортивный кодекс и дисциплины",
+      "url": "https://jjif.sport/wp-content/uploads/2020/05/Organization_and_sporting_code_2020.pdf",
+      "type": "federation"
+    },
+    "wko-gear": {
+      "title": "WKO Shinkyokushinkai — руководство по протекторам",
+      "url": "https://www.wko.or.jp/wp-content/uploads/2024/02/KDF2024_Protector-Guideline.pdf",
+      "type": "federation"
+    },
+    "vbe-rules": {
+      "title": "Минспорт России — правила ВБЕ от 04.08.2026 № 691",
+      "url": "https://legalacts.ru/doc/pravila-vida-sporta-vostochnoe-boevoe-edinoborstvo-utv-prikazom-minsporta_1/",
+      "type": "regulation"
+    },
+    "allstyle-calendar": {
+      "title": "Минспорт России — положения всестилевого карате",
+      "url": "https://www.minsport.gov.ru/neolimpijskie-vidy-sporta-2026/vsestilevoe-karate-2026/",
+      "type": "regulation"
+    },
+    "ru-federations": {
+      "title": "Минспорт России — реестры спортивных федераций",
+      "url": "https://minsport.gov.ru/activity/high-performance-sports/sports-reserve-training/sports-federation-registers/",
+      "type": "regulation"
+    },
+    "sambo-regional": {
+      "title": "Новосибирская региональная федерация самбо — названия экипировки",
+      "url": "https://sambonsk.ru/11-sambo/19-ekipirovka-dlya-sambo",
+      "type": "usage"
+    },
+    "helmet-market": {
+      "title": "Fightwear — разновидности боксёрских шлемов",
+      "url": "https://fightwear.ru/blog/obzory/1125-kak-vybrat-shlem-dlya-boksa.html",
+      "type": "usage"
+    }
+  },
+  "groups": [
+    {
+      "id": "boxing",
+      "family": "striking",
+      "title": "Бокс",
+      "names": [
+        "бокс",
+        "boxing",
+        "ФБР",
+        "IBA",
+        "World Boxing"
+      ],
+      "scope": "Тип перчаток, масса в унциях, застёжка и конкретная модель — отдельные параметры. Для соревнований сверять положение и выдачу экипировки.",
+      "sources": [
+        "hp-catalog",
+        "fbrk-gear",
+        "fbr-rules"
+      ],
+      "terms": [
+        {"id":"bag-gloves","term":"снарядные перчатки","aliases":["снарядочные перчатки","снарядные перчи","перчи для мешка","перчи на мешок","перчи на грушу","перчатки на грушу","перчатки для снарядов","мешочные перчатки","мешковые перчи","перчатки для груши","bag mitts","bag glove","снарядки","снарядок","снарядка","снарядками","bag gloves"],"note":"Перчатки для работы с мешком, грушей или лапами. Слова «снарядки» и «блинчики» в этом смысле фиксирует памятка Федерации бокса Крыма. При слове «блинчики» значение уточняется по контексту.","sources":["fbrk-gear","vale-tudo-usage"],"attested":["снарядки"]},
+        {"id":"boxing-gloves","term":"боксерские перчатки","aliases":["боксерские перчи","перчи для бокса","перчи боксерские","боксёрские перчатки","boxing glove"],"note":"При общем запросе уточни, нужны ли перчатки для снарядов, работы в парах или соревнований. Сохраняй явно названные модель и массу.","sources":["fbrk-gear","vale-tudo-usage"]},
+        {"id":"sparring-gloves","term":"перчатки для спарринга","aliases":["спарринговые перчи","спаринговые перчи","спарринговки","спаринговки","спарринговые перчатки","перчи для спарринга","перчи для спаррингов","перчатки для работы в парах","перчи для пар","sparring gloves"],"note":"Экипировка для работы с партнёром. Подбирают конструкцию, мягкость набивки и массу по дисциплине и требованиям тренера или зала. В боксе и ММА конструкции различаются.","sources":["hayabusa-weight","fightgear-usage","fbrk-gear"]},
+        {"id":"training-gloves","term":"тренировочные перчатки","aliases":["тренировочные перчи","перчи для тренек","перчатки на треню","универсальные боксерские перчатки","training gloves","all-round gloves"],"note":"Широкая категория. Назначение для мешка, лап или партнёра сверяют по конструкции и описанию модели.","sources":["hayabusa-weight","fairtex-gloves-guide"],"search":false},
+        {"id":"lace-and-strap","term":"застёжка перчаток","aliases":["на шнурках","на шнуровке","на липучке","на липах","на велкро","велкро","lace-up","hook-and-loop"],"note":"Шнуровка и липучка Velcro обозначают способ фиксации манжеты. Застёжку проверяют по карточке конкретной модели.","sources":["fairtex-gloves-guide","hp-mt-style"],"search":false},
+        {"id":"oz-gloves","term":"масса перчаток в унциях","aliases":["унц","унция","унции","унций","унцовка","унцовки","унцовки для бокса","унцовые","оз","oz","10oz","12oz","14oz","16oz","12 унцовые","14 унцовых","шестнадцатиунцовая","12ках","14s","16s","граммовка перчаток"],"note":"На боксёрских перчатках oz обозначает заявленную массу одной перчатки. 1 oz ≈ 28,35 г. Маркировки 12, 14 и 16 oz соответствуют примерно 340, 397 и 454 г. Посадку по кисти сверяют отдельно по размерной сетке и конструкции конкретной модели.","sources":["nist-ounce","ultimatum-ounce","hp-mt-style","expertboxing-usage","fightgear-usage","lion-weight-usage"],"attested":["12 унцовые","шестнадцатиунцовая","12ках","14s","16s","14oz"],"search":false},
+        {"id":"glove-hand-fit","term":"посадка перчатки","aliases":["обхват кисти","размер по ладони","отделение для кисти","hand compartment","hand circumference"],"note":"Две модели одинаковой массы могут иметь разную посадку. Сверяй обхват кисти, бинты и размерную таблицу конкретной модели.","sources":["ultimatum-ounce","fairtex-gloves-guide"],"search":false},
+        {"id":"competition-gloves","term":"соревновательные боксерские перчатки","aliases":["боевые боксерские перчатки","турнирные перчатки для бокса","перчатки на старт","competition boxing gloves","fight gloves для бокса"],"note":"Допустимая масса, застёжка, модель и выдача зависят от регламента соревнований. Для допуска нужно уточнить организацию, категорию и положение турнира.","sources":["world-boxing-rules","fbr-rules"],"search":false},
+        {"id":"boxing-mitts","term":"лапы","aliases":["тренерские лапы","фокус митсы","фокус-митсы","фокус лапы","фокус лапки","лапки для бокса","лапы на руки","митсы","punch mitts","focus pads"],"note":"Ручные мишени тренера. Уточнять, нужны ли малые лапы для рук или крупные тайские пэды.","sources":["fairtex-coach","fbrk-gear"]},
+        {"id":"boxing-headguard","term":"боксерский шлем","aliases":["шлем для бокса","боксерский хэдгар","боксерский хэдгир","boxing headguard","boxing headgear"],"note":"Открытый, со щёчными накладками и с поперечной защитой лица — разные исполнения."},
+        {"id":"bumper-headguard","term":"шлем с бампером","aliases":["шлем с перекладиной","шлем с защитой носа","боксерский шлем с бампером","face saver headgear","face bar headguard"],"note":"Бампер — передняя перекладина. «Мексиканка» или «мексиканский шлем» требуют уточнения конструкции. На витрине шлемы мексиканского стиля и шлемы с бампером заведены отдельно.","sources":["hp-catalog","helmet-market"]},
+        {"id":"open-headguard","term":"открытый шлем","aliases":["шлем открытого типа","шлем с открытым лицом для бокса","open face headguard"],"note":"Сопоставлять вид спорта. Открытый боксёрский шлем и шлем для боевого самбо могут иметь разные требования."},
+        {"id":"hand-wraps","term":"боксерские бинты","aliases":["бинты для бокса","бинтухи","бинтосы","бинты на руки","бинты на кисти","бинты под перчатки","хбшные бинты","handwraps","hand wrap"],"note":"Ленты для обмотки кисти перед надеванием перчатки. Длину и материал подбирают отдельно. Быстрые бинты отличаются конструкцией.","sources":["fbrk-gear","vale-tudo-usage"]},
+        {"id":"quick-wraps","term":"быстрые бинты","aliases":["бинты-перчатки","бинты перчатки","быстробинты","гелевые подперчатки","quick wraps","inner gloves"],"note":"Готовое изделие под перчатку. Гелевый наполнитель — отдельное свойство, которое проверяют в карточке."},
+        {"id":"speed-bag","term":"пневматическая груша","aliases":["пневмогруша","груша на платформу","скоростная груша","speed bag","speedball"],"note":"Малая груша на платформе. По общему слову «груша» уточнять крепление и назначение."},
+        {"id":"double-end-bag","term":"груша на растяжках","aliases":["груша на резинках","двухточечная груша","пневмогруша на растяжках","double end ball","double-end bag"],"note":"Снаряд с креплением сверху и снизу. Отдельный тип относительно груши на платформе."},
+        {"id":"heavy-bag","term":"боксерский мешок","aliases":["бокс-мешок","тяжелый мешок","мешок для ударов","боксёрский мешок","heavy punching bag"],"note":"Длинный или короткий тренировочный мешок. Вес, высоту, наполнение и крепление проверять в карточке."},
+        {"id":"boxing-shoes","term":"боксерки","aliases":["боксёры обувь","боксовки","боксерки для ринга","ботинки боксера","boxing boots","обувь боксёра"],"note":"Обувь для бокса. При заказе сохранять размер и модель. Слова «боксёрки» и «борцовки» вести к разным категориям."}
+      ]
+    },
+    {
+      "id": "muay-thai",
+      "family": "striking",
+      "title": "Муайтай",
+      "names": [
+        "муайтай",
+        "муай-тай",
+        "муай тай",
+        "тайский бокс",
+        "Муэй Тай",
+        "IFMA",
+        "ФМТР"
+      ],
+      "scope": "Различать экипировку спортсмена и тренерские мишени. Требования соревнований зависят от организации и категории.",
+      "sources": [
+        "rmtf-rules",
+        "ifma-rules",
+        "fairtex-guards",
+        "fairtex-coach",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"thai-pads","term":"тайские лапы","aliases":["пэды","пэды для тайского бокса","тай-пэды","тай пэды","кикпэды","кик-пэды","тайпэды","тайские пао","пао для муайтай","пады для муайтай","тайские пады","thai pads","thai kick pads","kick pads","пэды на предплечье"],"note":"Крупные мишени, которые тренер обычно фиксирует на предплечье. В каталогах встречаются названия pao и Thai pads.","sources":["fairtex-coach"]},
+        {"id":"belly-pad","term":"пояс тренера","aliases":["тренерский пояс","защитный пояс тренера","пояс на живот для лап","белли пад","белли-пад","belly pad","belly protector"],"note":"Защита живота тренера. Тяжелоатлетический пояс и корсет ищутся отдельно.","sources":["fairtex-coach"]},
+        {"id":"kick-shield","term":"ударная подушка","aliases":["подушка для ног","щит для ударов","ударный щит","кикшилд","кик-шилд","kick shield","strike shield"],"note":"Крупная удерживаемая мишень. При поиске отделять от малой лапы, тайских пэдов и подвесного мешка.","sources":["fairtex-coach"]},
+        {"id":"shin-instep","term":"защита голени и стопы","aliases":["шингарды голень-стопа","защита голень-стопа","щитки голень-стопа","shin and instep guards"],"note":"Закрывает голень и подъём стопы. Форму соединения и наличие съёмной защиты стопы подтверждают в карточке.","sources":["fairtex-guards","market-shin"]},
+        {"id":"sock-shin","term":"защита голени","aliases":["щитки чулком","чулки с щитком","чулки со щитком","sock shin guards","slip-on shin guards"],"note":"Эластичная защита голени по типу чулка. Тайские носки без щитка — другая категория.","sources":["hp-catalog"]},
+        {"id":"ankle-support","term":"тайские носки","aliases":["тайские чулки","тайские голеностопы","тайские носочки","тайские голеностопники","носки для муайтай","носки для тайского бокса","голеностопники для муайтай","ankle guards","ankle supports","ankle wraps"],"note":"Эластичная поддержка голеностопа. Щитки защищают другую область, голень и иногда подъём стопы.","sources":["fairtex-guards"]},
+        {"id":"muay-elbow","term":"налокотники","aliases":["налоки для муайтай","мягкие налокотники","защита локтей муайтай","muay thai elbow pads","elbow guards"],"note":"Протекторы локтей. Для соревнований проверить модель и цвет по положению.","sources":["ifma-rules"]},
+        {"id":"thai-shorts","term":"шорты муайтай","aliases":["тайские шортики","тайские шорты","шорты для тайского бокса","муай тай шорты","muay thai shorts","thai boxing shorts"],"note":"Крой для муайтай. Шорты для ММА и борцовские шорты имеют своё назначение.","sources":["fairtex-guards"]},
+        {"id":"mongkhon","term":"монгкон","aliases":["монкон","монгхон","монгхонг","mongkon","mongkhon"],"note":"Традиционная повязка на голову. В запросе о защите головы уточнить, нужен ли тренерский или соревновательный шлем.","sources":["ifma-rules"]},
+        {"id":"prajiad","term":"праджиад","aliases":["праджет","праджиат","пратьиат","prajiad","pra jaid"],"note":"Традиционная повязка на руку. Для проверки допуска сверять действующее положение турнира.","sources":["ifma-rules"]}
+      ]
+    },
+    {
+      "id": "kickboxing",
+      "family": "striking",
+      "title": "Кикбоксинг",
+      "names": [
+        "кикбоксинг",
+        "кикбокс",
+        "kickboxing",
+        "WAKO",
+        "ВАКО",
+        "ФКР",
+        "ВФК"
+      ],
+      "scope": "Обозначение дисциплины влияет на выбор защиты. ФКР без контекста может означать федерацию карате.",
+      "sources": [
+        "wako-rules",
+        "kick-ru",
+        "kick-calendar"
+      ],
+      "terms": [
+        {"id":"point-fighting","term":"поинтфайтинг","aliases":["PF","пойнтфайтинг","поинт файтинг","point fight","point fighting","семиконтакт","semi-contact"],"note":"PF в таблице дисциплин кикбоксинга означает поинтфайтинг. «Семиконтакт» встречается в разговоре и старых обозначениях.","search":false},
+        {"id":"light-contact","term":"лайт-контакт","aliases":["LC","лайтконтакт","лайт контакт","light contact"],"note":"Дисциплина кикбоксинга. Отдельные требования к защите проверяют по положению.","search":false},
+        {"id":"kick-light","term":"кик-лайт","aliases":["KL","киклайт","кик лайт","kick light"],"note":"Дисциплина WAKO на татами. Обозначение KL расшифровывать в контексте дисциплин.","search":false},
+        {"id":"full-contact","term":"фулл-контакт","aliases":["FC","фул контакт","фулл контакт","фулконтакт","фуллконтакт","full contact"],"note":"Дисциплина кикбоксинга. В запросах про карате «фулл-контакт» также может обозначать общий формат.","search":false},
+        {"id":"low-kick","term":"лоу-кик","aliases":["LK","лоукик","лоу кик","low-kick","low kick"],"note":"LK означает дисциплину кикбоксинга в соответствующем контексте. Короткие буквенные обозначения могут встречаться в артикулах.","search":false},
+        {"id":"k1","term":"К1","aliases":["K-1","К-1","K1","кей один","кей-ван","Ки-ван"],"note":"К1 в регламенте кикбоксинга. При подборе уточнить турнир, возраст и требования к защите.","search":false},
+        {"id":"point-gloves","term":"перчатки для поинтфайтинга","aliases":["перчи для поинта","поинтовки","перчатки PF","point fighting gloves","перчатки для семиконтакта"],"note":"Тип перчаток для поинтфайтинга. Совместимость с другими дисциплинами проверяют по правилам."},
+        {"id":"kick-foot","term":"футы","aliases":["футы кикбоксинг","кикбоксерские футы","защита стопы для кикбоксинга","kickboxing boots","kickboxing foot protectors"],"note":"Защитные накладки на стопы. Уточнить дисциплину и форму пятки. Футы для ИТФ подбирают по его требованиям."},
+        {"id":"kick-pants","term":"штаны для кикбоксинга","aliases":["кикбоксерские брюки","брюки кикбоксинг","штаны фулл-контакт","full contact trousers","kickboxing pants"],"note":"Длинные штаны. Уточнить дисциплину, так как в ассортименте также есть шорты и другая форма."}
+      ]
+    },
+    {
+      "id": "sanda",
+      "family": "striking",
+      "title": "Ушу-саньда",
+      "names": [
+        "ушу-саньда",
+        "саньда",
+        "саньшоу",
+        "сань-шоу",
+        "саньда ушу",
+        "sanda",
+        "sanshou",
+        "IWUF"
+      ],
+      "scope": "Саньда — контактная спортивная дисциплина. Комплект для таолу подбирают отдельно.",
+      "sources": [
+        "iwuf-sanda",
+        "iwuf-rules"
+      ],
+      "terms": [
+        {"id":"sanda-suit","term":"форма для ушу-саньда","aliases":["форма саньда","форма саньшоу","майка и шорты саньда","sanda uniform","sanda kit"],"note":"В запросе на форму уточнить дисциплину и требуемые элементы по положению."},
+        {"id":"sanda-vest","term":"жилет для ушу-саньда","aliases":["жилет саньшоу","нагрудник саньда","санда протектор","sanda chest protector"],"note":"Нагрудный протектор контактной дисциплины. Проверять крепления, размер и требования к цвету."},
+        {"id":"sanda-gloves","term":"перчатки для ушу-саньда","aliases":["саньда перчи","саньшоу перчатки","sanda gloves"],"note":"Выбор массы и конструкции привязан к регламенту турнира."}
+      ]
+    },
+    {
+      "id": "savate",
+      "family": "striking",
+      "title": "Сават",
+      "names": [
+        "сават",
+        "французский бокс",
+        "boxe française",
+        "savate BF",
+        "FFSavate"
+      ],
+      "scope": "Сават использует специфическую обувь. Запрос про допуск проверяется по регламенту организатора.",
+      "sources": [
+        "savate-gear"
+      ],
+      "terms": [
+        {"id":"savate-shoes","term":"обувь для савата","aliases":["саватки","savate shoes","chaussures de savate"],"note":"Спортивная обувь для французского бокса. Термин «саватки» используется как поисковая форма.","search":false},
+        {"id":"savate-gloves","term":"перчатки для савата","aliases":["сават перчатки","gants de savate","savate gloves"],"note":"Искать по официальному типу, массе и регламенту. Сведения о наличии запрашивать в каталоге.","search":false},
+        {"id":"savate-format","term":"форматы савата","aliases":["ассо","assaut","комба","combat","precombat"],"note":"Assaut и Combat — разные форматы савата. Общее слово combat вне названия савата многозначно.","search":false}
+      ]
+    },
+    {
+      "id": "mma",
+      "family": "grappling",
+      "title": "ММА",
+      "names": [
+        "ММА",
+        "MMA",
+        "СБЕ",
+        "смешанные единоборства",
+        "смешанное боевое единоборство",
+        "Союз ММА России",
+        "IMMAF"
+      ],
+      "scope": "Уточнять формат: тренировочные, спарринговые и соревновательные перчатки, а также вид защиты выбираются отдельно.",
+      "sources": [
+        "mma-ru",
+        "venum-rash",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"mma-gloves","term":"перчатки ММА","aliases":["мма перчатки","перчатки для эмэмэй","перчатки для эмма","эмэмэйки","мма-шки","мма перчи","перчи для мма","мма перчатки с открытыми пальцами","грэпплинговые перчатки","MMA open palm gloves","MMA fight gloves"],"note":"Перчатки с открытыми пальцами. Тренировочные и соревновательные модели могут отличаться массой, набивкой и фиксацией. Допустимость зависит от регламента."},
+        {"id":"mma-sparring","term":"спарринговые перчатки ММА","aliases":["мма спарринговки","перчатки мма для спарринга","sparring MMA gloves","MMA sparring gloves"],"note":"Перчатки ММА для парных тренировок. Плотность и конфигурацию защиты подтверждать в карточке."},
+        {"id":"grappling-gloves","term":"ударно-захватные перчатки","aliases":["ударно-захватки","ударно захватные перчатки","ударно-захватные","грепплинг-перчатки","grappling gloves"],"note":"Категорию используют в нескольких дисциплинах. Для боевого самбо, ММА или панкратиона проверить требования отдельно."},
+        {"id":"rashguard","term":"рашгард","aliases":["рашик для мма","раш для мма","раши","рашка для грэпплинга","компрессионка верх","компрессионная майка","compression top","long sleeve rashguard","short sleeve rashguard"],"note":"Облегающая тренировочная футболка. Уточнять длину рукава, размеры и дисциплину.","sources":["venum-rash"]},
+        {"id":"spats","term":"тайтсы","aliases":["спаты","спатс","спэтс","спатсы","леггинсы для грэпплинга","компрессионные штаны","тренировочные тайтсы","grappling spats","compression tights","spats"],"note":"Облегающие штаны для тренировок. Ношение под шортами, цвет и допуск на соревнования зависят от конкретного регламента.","sources":["ibjjf-uniform","bjj-spats-usage"],"attested":["spats"]},
+        {"id":"fight-shorts","term":"шорты ММА","aliases":["файт-шортс","файтшорты","боевые шорты мма","MMA fight shorts","board shorts MMA","грэпплинг шорты"],"note":"Уточнять формат спорта. В некоторых регламентах важны карманы, застёжки и длина.","sources":["mma-ru"]},
+        {"id":"groin-guard","term":"защита паха","aliases":["ракушка для мма","раковина","паховик","паховая защита","бандаж паховый","суспензорий","suspensor","protective cup","groin protector"],"note":"Защитная вставка или изделие с креплением. Слово «раковина» в каталоге единоборств относится к защите паха."},
+        {"id":"mouthguard","term":"капа","aliases":["каппа для мма","капа мма","капа для рта","капа на зубы","однослойная капа","boil and bite mouthguard","mouth guard"],"note":"Тип капы и способ подгонки уточняют по карточке. Требования к цвету и форме могут зависеть от регламента.","search":false}
+      ]
+    },
+    {
+      "id": "pankration",
+      "family": "grappling",
+      "title": "Панкратион",
+      "names": [
+        "панкратион",
+        "панкратиум",
+        "pankration",
+        "панкратион UWW"
+      ],
+      "scope": "Формат соревнования определяет разрешённые элементы защиты. Панкратион и ММА имеют отдельные правила.",
+      "sources": [
+        "uww-pankration",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"pankration-gloves","term":"перчатки для панкратиона","aliases":["перчи панкратион","перчатки панкратион","pankration gloves"],"note":"При поиске сохранять назначение и возрастную группу."},
+        {"id":"pankration-uniform","term":"форма для панкратиона","aliases":["комплект панкратион","рашгард панкратион","pankration uniform","pankration rashguard"],"note":"В составе формы отдельно проверяют верх, низ и защиту по требованиям турнира.","search":false},
+        {"id":"pankration-shin","term":"защита голени для панкратиона","aliases":["щитки панкратион","шингарды панкратион","pankration shin guards"],"note":"Защиту подбирают по правилам конкретного формата.","search":false}
+      ]
+    },
+    {
+      "id": "sambo",
+      "family": "grappling",
+      "title": "Спортивное самбо",
+      "names": [
+        "самбо",
+        "спортивное самбо",
+        "ВФС",
+        "FIAS",
+        "ФИАС",
+        "sambo"
+      ],
+      "scope": "Форма состоит из отдельных элементов. Цвет и маркировку сверяют по положению турнира и документам ВФС.",
+      "sources": [
+        "sambo-rules",
+        "sambo-gear",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"sambo-jacket","term":"куртка самбо","aliases":["самбовская куртка","куртка для самбо","куртка сам-бо","самбо кимоно","самбокуртка","sambo coat","самбовка","самбовку","самбовки"],"note":"«Самбовка» часто означает куртку. У полного комплекта проверяют наличие шорт, пояса и обуви.","attested":["самбовка","самбовки"],"sources":["sambo-rules","vfs-equipment","ros-sambo","sambo-regional"]},
+        {"id":"sambo-shorts","term":"шорты самбо","aliases":["самбошорты","самбовские шорты","шорты сам-бо","шорты для самбо","sambo shorts"],"note":"Соревновательные шорты для спортивного самбо. В боевом самбо есть отдельные требования к конструкции."},
+        {"id":"sambo-shoes","term":"ботинки самбо","aliases":["самбовские ботинки","борцовки самбо","самбовки на ноги","самбо-кеды","самбо ботинки","кеды самбо","sambo wrestling shoes","sambo boots"],"note":"Обувь для самбо. При покупке на соревнования сверяют маркировку и требования регламента.","sources":["vfs-equipment","sambo-rules"]},
+        {"id":"sambo-belt","term":"пояс для самбо","aliases":["пояс самбо","самбовский пояс","sambo belt"],"note":"Подбирают к форме и цвету по применимым требованиям."},
+        {"id":"sambo-set","term":"форма для самбо","aliases":["самбокомплект","комплект самбо","комплект для самбо","sambo uniform"],"note":"Уточнить, продаётся ли куртка, пояс, обувь и шорты одним набором или по отдельности."}
+      ]
+    },
+    {
+      "id": "combat-sambo",
+      "family": "grappling",
+      "title": "Боевое самбо",
+      "names": [
+        "боевое самбо",
+        "самбо боевое",
+        "combat sambo",
+        "БС"
+      ],
+      "scope": "Для боевого самбо вид шлема, перчаток, накладок и форма проверяются отдельно от спортивного самбо.",
+      "sources": [
+        "sambo-rules"
+      ],
+      "terms": [
+        {"id":"combat-gloves","term":"перчатки для боевого самбо","aliases":["самбо боевые перчатки","перчи боевого самбо","ударно-захватные самбо","combat sambo gloves"],"note":"Проверяются масса, конструкция, требования возраста и модели. Открытые пальцы сами по себе не подтверждают допуск."},
+        {"id":"combat-helmet","term":"шлем для боевого самбо","aliases":["шлем бс","шлем самбо боевой","combat sambo headgear"],"note":"Правила выделяют шлем с открытым лицом и подбородком. Перед продажей под турнир сверить применимое положение."},
+        {"id":"combat-shin","term":"накладки на ноги для боевого самбо","aliases":["защита голени боевое самбо","голень для боевого самбо","combat sambo shin guards"],"note":"Для соревнований проверяют покрытие голени и шнуровки обуви."},
+        {"id":"combat-shorts","term":"шорты для боевого самбо","aliases":["шорты боевого самбо","combat sambo shorts"],"note":"Отдельная позиция относительно шорт спортивного самбо."}
+      ]
+    },
+    {
+      "id": "wrestling",
+      "family": "grappling",
+      "title": "Вольная, греко-римская и женская борьба",
+      "names": [
+        "вольная борьба",
+        "вольная",
+        "греко-римская борьба",
+        "классическая борьба",
+        "женская борьба",
+        "FS",
+        "GR",
+        "WW",
+        "UWW",
+        "ФСБР"
+      ],
+      "scope": "FS, GR и WW читаются как дисциплины в контексте UWW. Вне такого контекста короткие коды могут быть частью артикула или другой аббревиатуры.",
+      "sources": [
+        "uww-wrestling",
+        "uww-disciplines"
+      ],
+      "terms": [
+        {"id":"wrestling-singlet","term":"трико борцовское","aliases":["трико для борьбы","борцовский синглет","синглет борцовский","трико вольника","треко для борьбы","wrestling uniform","singlet"],"note":"Цельная форма борца. Близкий термин singlet в тяжёлой атлетике или пауэрлифтинге означает другую категорию."},
+        {"id":"wrestling-shoes","term":"борцовки","aliases":["обувь борца","борцовские ботинки","кеды для борьбы","борцовская обувь","wrestler shoes"],"note":"Лёгкая обувь для борьбы. Самбовки и боксёрки различают по виду спорта."},
+        {"id":"wrestling-ear-guard","term":"защита ушей для борьбы","aliases":["борцовские наушники","борцовский шлем","защита ушей борца","ear guards","wrestling ear guard","wrestling headgear"],"note":"Мягкое защитное изделие для ушей. Допустимость в конкретном турнире зависит от регламента."},
+        {"id":"freestyle","term":"вольная борьба","aliases":["FS","freestyle wrestling","вольники"],"note":"Маркировка UWW для дисциплины. «Вольник» указывает на спортсмена, а не на товар.","search":false},
+        {"id":"greco-roman","term":"греко-римская борьба","aliases":["GR","греко-римка","классика борьбы","Greco-Roman","классики"],"note":"Общий запрос «классика» требует контекста. Не переписывать часть артикула.","search":false},
+        {"id":"women-wrestling","term":"женская борьба","aliases":["WW","Womens Wrestling","women wrestling"],"note":"Маркировка дисциплины UWW. Покупательский запрос по размеру формы требует дополнительного уточнения.","search":false}
+      ]
+    },
+    {
+      "id": "judo",
+      "family": "grappling",
+      "title": "Дзюдо",
+      "names": [
+        "дзюдо",
+        "джудо",
+        "judo",
+        "ФДР",
+        "IJF",
+        "МФД"
+      ],
+      "scope": "Дзюдоги различаются по плотности, крою, допустимому цвету и маркировке. Для соревнования сверять возраст и применимый документ.",
+      "sources": [
+        "ijf-judogi",
+        "judo-ru",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"judogi","term":"кимоно для дзюдо","aliases":["дзюдо-ги","дзюдо ги","дзюдокимоно","джудо ги","дзюдоги детское","дзюдошная форма","judogi for judo","judo kimono"],"note":"Форма для дзюдо состоит из куртки, брюк и пояса. Состав поставки сверяют в карточке. Размер и плотность ткани проверяют раздельно.","sources":["ijf-judogi"]},
+        {"id":"judo-jacket","term":"куртка для дзюдо","aliases":["уваги дзюдо","дзюдо куртка","uwagi judo","judogi jacket","judo top"],"note":"Uwagi — верх формы. Отдельная куртка не означает полный комплект.","sources":["ijf-judogi"]},
+        {"id":"judo-pants","term":"брюки для дзюдо","aliases":["штаны дзюдо","дзюдо брюки","зубон","дзюбон","zubon","judogi pants"],"note":"Нижняя часть дзюдоги. Крой и размер проверять отдельно от куртки.","sources":["ijf-judogi"]},
+        {"id":"judo-belt","term":"пояс для дзюдо","aliases":["дзюдо пояс","оби дзюдо","пояс дзюдо","judo obi","judo belt"],"note":"Obi — общее японское слово для пояса. Категорию определяет вид спорта и нужный цвет."},
+        {"id":"judo-measure","term":"плотность дзюдоги","aliases":["гсм","г/м²","граммовка кимоно","плотность дзюдо","GSM judogi"],"note":"Указание массы ткани на единицу площади. Допуск подтверждается по требованиям, маркировке и конкретной модели.","search":false}
+      ]
+    },
+    {
+      "id": "bjj",
+      "family": "grappling",
+      "title": "Бразильское джиу-джитсу",
+      "names": [
+        "БЖЖ",
+        "BJJ",
+        "бразильское джиу-джитсу",
+        "бразильское джиу джитсу",
+        "бразильское джиу",
+        "IBJJF",
+        "ибжжф"
+      ],
+      "scope": "Gi и No-Gi — разные форматы. Требования IBJJF применяются, когда на них ссылается организатор.",
+      "sources": [
+        "ibjjf-uniform",
+        "venum-rash",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"bjj-gi","term":"кимоно для джиу-джитсу","aliases":["бжж ги","ги бжж","ги для бджж","бжж кимоно","бразильское ги","кимоно для bjj","грэпплинг ги","ги для бразильского джиу-джитсу","кимоно для грэпплинга ги","BJJ kimono","brazilian jiu jitsu gi"],"note":"Куртка и брюки для формата Gi. Для турнира проверяют форму и разрешённый крой по регламенту именно этой дисциплины."},
+        {"id":"bjj-gi-sizes","term":"размеры Gi","aliases":["сетку кимоно бжж","размеры кимоно бжж","размер A2L","размер A2H","A2L","A2H"],"note":"A2, A2L и A2H обозначают разные варианты лекала в сетках некоторых производителей Gi. Для конкретной модели сверяют рост, вес и размерную таблицу бренда.","sources":["tatami-gi-sizes"],"search":false},
+        {"id":"bjj-nogi","term":"форма No-Gi","aliases":["ноу ги","ноуги","ноу-ги","ноги бжж","без ги","без кимоно бжж","no gi","nogi","nøgi"],"note":"Формат без куртки Gi. Для запроса «ноги» требуется контекст BJJ, иначе речь может идти о защите ног.","search":false},
+        {"id":"bjj-belt","term":"пояс для джиу-джитсу","aliases":["пояс бжж","бжж пояс","BJJ belt","пояс для bjj"],"note":"Пояс для Gi. Размер пояса и ранг учитываются отдельно."},
+        {"id":"ranked-rash","term":"рашгард по цвету пояса","aliases":["ранговый рашгард","рашгард ранга","ranked rashguard","ranked rash guard"],"note":"Цветовая маркировка уровня. Уточнить конкретный регламент и возраст.","sources":["ibjjf-uniform"]},
+        {"id":"gi-fabric","term":"ткань Gi","aliases":["жемчужное плетение","перл вив","pearl weave","рипстоп бжж","ripstop gi"],"note":"Типы ткани. Не выводить состав конкретного товара из жаргона без карточки.","search":false}
+      ]
+    },
+    {
+      "id": "grappling",
+      "family": "grappling",
+      "title": "Грэпплинг UWW",
+      "names": [
+        "грэпплинг",
+        "грепплинг",
+        "грэплинг",
+        "grappling",
+        "GP",
+        "GPG",
+        "грэпплинг-ги"
+      ],
+      "scope": "В правилах UWW различаются Grappling и Grappling Gi. Названия похожи на BJJ, но требования проверяются по своим документам.",
+      "sources": [
+        "uww-grappling",
+        "uww-disciplines"
+      ],
+      "terms": [
+        {"id":"grappling-uniform","term":"форма для грэпплинга","aliases":["грэппл форма","комплект грэпплинг","grappling uniform","grappling kit"],"note":"В Grappling обычно подбирают рашгард и шорты. Для Grappling Gi уточняют комплект куртка и брюки.","search":false},
+        {"id":"grappling-gi","term":"кимоно для грэпплинга","aliases":["грэпплинг ги куртка","Grappling Gi uniform","grappling gi suit"],"note":"Для соревнований проверять требования UWW к форме Gi. Не переносить маркировку IBJJF автоматически.","search":false},
+        {"id":"grappling-format","term":"дисциплина грэпплинга","aliases":["GP","GPG","грэпплинг-ги","grappling no-gi"],"note":"Использовать точное имя дисциплины из положения; короткие коды оставлять без автозамены.","search":false}
+      ]
+    },
+    {
+      "id": "jujitsu",
+      "family": "grappling",
+      "title": "Спортивное джиу-джитсу",
+      "names": [
+        "джиу-джитсу",
+        "джиу джитсу",
+        "джиу-джицу",
+        "дзю-дзюцу",
+        "JJIF",
+        "РФДЖ"
+      ],
+      "scope": "Fighting, Duo и Ne-Waza — разные программы. Положение российского турнира определяет применимые требования.",
+      "sources": [
+        "jujitsu-calendar",
+        "jjif-code"
+      ],
+      "terms": [
+        {"id":"jjif-gi","term":"форма для джиу-джитсу","aliases":["джиу-джитсу форма","дзюдзюцу кимоно","ju jitsu gi","ju-jitsu uniform"],"note":"Форма выбирается по дисциплине, размеру и цвету; вид и состав уточнить в положении.","search":false},
+        {"id":"jjif-formats","term":"дисциплины джиу-джитсу","aliases":["файтинг","файтинг джиу-джитсу","дуо","не-ваза","не ваза","ne-waza","JJIF Fighting","JJIF Duo"],"note":"В запросе Fighting обычно означает конкретную дисциплину, а не любую форму для боя. Проверять по документу турнира.","search":false},
+        {"id":"jjif-protection","term":"защита для джиу-джитсу","aliases":["защита кисти джиу-джитсу","накладки джиу-джитсу","JJIF hand protectors"],"note":"Конкретный комплект защиты зависит от программы. Сопоставлять модель с правилами и маркировкой.","search":false}
+      ]
+    },
+    {
+      "id": "taekwondo-wt",
+      "family": "traditional",
+      "title": "Тхэквондо WT",
+      "names": [
+        "WT",
+        "ВТ",
+        "WTF",
+        "ВТФ",
+        "керуги",
+        "кёруги",
+        "кюруги",
+        "kyorugi",
+        "пхумсэ",
+        "пумсэ",
+        "poomsae",
+        "СТР"
+      ],
+      "scope": "WT исторически называлась WTF. Керуги и пхумсэ различаются по форме и защите. Актуальное положение турнира важнее разговорного названия.",
+      "sources": [
+        "wt-kreugi",
+        "wt-approval",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"wt-dobok","term":"добок WT","aliases":["добок вэтэ","добок вт","добок WTF","добок для керуги","WT dobok","taekwondo WT uniform"],"note":"Форма для соответствующего направления. Цвет воротника и форма кроя зависят от категории и дисциплины."},
+        {"id":"wt-hogu","term":"защитный жилет для тхэквондо","aliases":["хогу","хого","хогу тхэквондо","жилет WT","нагрудник WT","hogu","taekwondo chest protector"],"note":"Нагрудный протектор. Обычные и электронные модели подбирать отдельно."},
+        {"id":"wt-pss","term":"электронный протектор тхэквондо","aliases":["ПСС","PSS","электронный жилет WT","электронный хогу","taekwondo PSS","protector and scoring system"],"note":"PSS — система протекторов и подсчёта очков. Уточнить марку и поколение системы турнира.","search":false},
+        {"id":"wt-socks","term":"электронные носки для тхэквондо","aliases":["сенсорные носки","электронные футы","носки с датчиками","носочки с сенсорами","electronic socks","sensor socks","e-foot protectors"],"note":"Совместимость с электронным жилетом зависит от производителя и системы. Обычные футы не подменяют сенсорные."},
+        {"id":"wt-head","term":"шлем для тхэквондо","aliases":["шлем WT","шлем вт","электронный шлем вт","taekwondo head protector","WT headgear"],"note":"Различать обычный и электронный шлем. Размер и совместимость проверять по карточке."},
+        {"id":"wt-forearm","term":"защита предплечья для тхэквондо","aliases":["щитки рук вт","щитки на руки тхэквондо","протекторы предплечья","WT forearm guard","forearm protectors WT"],"note":"Накладки на предплечья, отдельная категория относительно защиты голени и кисти."},
+        {"id":"wt-poomsae","term":"форма для пхумсэ","aliases":["пхумсэ добок","добок для пумсе","добок пумсэ","poomsae dobok","форма пхумсэ"],"note":"Форма для технической дисциплины. Проверять категорию, верх и низ, не переносить описание добока керуги."},
+        {"id":"wt-brands","term":"совместимость электронной экипировки","aliases":["дэадо","даэдо","Daedo","KPNP","K-PNP","кей-пи-эн-пи"],"note":"Название бренда — только первый признак. Совместимость подтверждается для модели, поколения и соревнования.","search":false}
+      ]
+    },
+    {
+      "id": "taekwondo-itf",
+      "family": "traditional",
+      "title": "Тхэквондо ИТФ",
+      "names": [
+        "ИТФ",
+        "ITF",
+        "массоги",
+        "масоги",
+        "matsogi",
+        "туль",
+        "тули",
+        "tul"
+      ],
+      "scope": "Рассматривать турнирные правила применимой организации, дисциплину и возраст. В РФ тхэквондо ИТФ и МФТ имеют отдельные положения.",
+      "sources": [
+        "itf-2026",
+        "itf-russia"
+      ],
+      "terms": [
+        {"id":"itf-dobok","term":"добок ИТФ","aliases":["добок itf","добок и-т-ф","итф форма","тхэквондо итф кимоно","ITF dobok"],"note":"Форма ИТФ. Для турнира сверять маркировку, крой и положение."},
+        {"id":"itf-feet","term":"футы для тхэквондо ИТФ","aliases":["футы итф","итф футы","футы с закрытой пяткой","протекторы стоп итф","foot protectors ITF","ITF foot guards"],"note":"Защита стоп. Уточнить правила закрытия пятки и требуемую маркировку у организатора."},
+        {"id":"itf-hands","term":"перчатки для тхэквондо ИТФ","aliases":["итф перчи","перчи итф","перчатки массоги","ITF sparring gloves","ITF hand protectors"],"note":"Масса и конструкция зависят от версии правил, возраста и типа спарринга."},
+        {"id":"itf-forms","term":"туль","aliases":["тыли","тулы","туль итф","ITF patterns","tul ITF"],"note":"Технический комплекс. Запрос на экипировку для туль отличать от запроса на защиту для массоги.","search":false}
+      ]
+    },
+    {
+      "id": "taekwondo-gtf",
+      "family": "traditional",
+      "title": "Тхэквондо ГТФ",
+      "names": [
+        "ГТФ",
+        "GTF",
+        "тхэквондо гтф",
+        "Global Taekwon-Do Federation"
+      ],
+      "scope": "ГТФ проверять по собственному положению. Перчатки, футы и форма других направлений не подтверждают совместимость.",
+      "sources": [
+        "gtf-russia"
+      ],
+      "terms": [
+        {"id":"gtf-dobok","term":"добок ГТФ","aliases":["гтф добок","тхэквондо гтф кимоно","GTF dobok"],"note":"Соревновательную форму выбирать по обозначению ГТФ и положению.","search":false},
+        {"id":"gtf-feet","term":"защита стоп для ГТФ","aliases":["гтф футы","футы гтф","GTF foot protectors"],"note":"Проверить конструкцию и требования к возрастной группе.","search":false}
+      ]
+    },
+    {
+      "id": "taekwondo-mft",
+      "family": "traditional",
+      "title": "Тхэквондо МФТ",
+      "names": [
+        "МФТ",
+        "тхэквондо мфт",
+        "Таэквондо МФТ"
+      ],
+      "scope": "Название российского вида спорта. Для допуска брать правила МФТ и положение турнира.",
+      "sources": [
+        "mft-russia"
+      ],
+      "terms": [
+        {"id":"mft-dobok","term":"добок МФТ","aliases":["мфт добок","форма мфт","форма для тхэквондо МФТ"],"note":"По этому запросу уточнять маркировку и дисциплину. ИТФ может использовать сходные слова для элементов формы.","search":false},
+        {"id":"mft-feet","term":"защита стоп для МФТ","aliases":["футы мфт","мфт футы","защита ног мфт"],"note":"Проверить положение, возраст и требуемое защитное снаряжение.","search":false}
+      ]
+    },
+    {
+      "id": "karate-wkf",
+      "family": "traditional",
+      "title": "Каратэ WKF",
+      "names": [
+        "WKF",
+        "ВКФ",
+        "каратэ",
+        "карате",
+        "кумитэ",
+        "кумите",
+        "kumite",
+        "ката",
+        "kata"
+      ],
+      "scope": "В кумитэ и ката различаются задачи экипировки. ФКР может относиться также к кикбоксингу.",
+      "sources": [
+        "wkf-docs",
+        "wkf-approved",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"karategi","term":"кимоно для карате","aliases":["каратэ ги","карате-ги","каратэ-ги","каратэ кимоно","karate-gi","karate dogi","каратэги","каратеги"],"note":"Крой и назначение зависят от направления и дисциплины.","attested":["каратэги"],"sources":["wkf-approved","karategi-market"]},
+        {"id":"kumite-gi","term":"кимоно для кумитэ","aliases":["кумитэшное кимоно","каратэги кумитэ","ги кумитэ","кимоно кумитэ","kumite gi","karategi kumite"],"note":"Для турнира проверять допуск конкретной модели. Слова «лёгкое кимоно» не подтверждают допуск."},
+        {"id":"kata-gi","term":"кимоно для ката","aliases":["каташное кимоно","каратэги ката","ги ката","кимоно ката","kata gi","karategi kata"],"note":"Подбирать отдельно от кумитэ. Заявленная плотность и маркировка проверяются в карточке."},
+        {"id":"karate-mitts","term":"накладки на руки для карате","aliases":["каратэшные накладки","карате перчи","накладки кумитэ","перчатки кумитэ","WKF mitts","karate mitts","fist protectors WKF"],"note":"Защита кисти для кумитэ. Сверить тип, цвет, размер и маркировку."},
+        {"id":"wkf-shins","term":"защита голени и стопы для карате","aliases":["футы вкф","щитки вкф","защита голени wkf","WKF shin and instep guard","karate shin pad WKF"],"note":"По запросу проверять комплект и требования к сертификации. Варианты со съёмной защитой стопы различаются по модели."},
+        {"id":"karate-body","term":"защита корпуса для карате","aliases":["карате жилет","защита торса wkf","нагрудник вкф","WKF body protector","WKF chest protector"],"note":"Защита корпуса и отдельный протектор груди могут различаться по назначению и категории."}
+      ]
+    },
+    {
+      "id": "kyokushin",
+      "family": "traditional",
+      "title": "Киокусинкай и полноконтактное карате",
+      "names": [
+        "киокушин",
+        "киокусин",
+        "кёкусин",
+        "киокусинкай",
+        "кёкусинкай",
+        "кёкушинкай",
+        "kyokushin",
+        "kyokushinkai",
+        "IKO",
+        "WKO",
+        "shinkyokushin"
+      ],
+      "scope": "Уточнить организацию, дисциплину и возраст. Маркировку IKO или WKO нельзя выводить из общего названия «киокусинкай».",
+      "sources": [
+        "iko-gear",
+        "hp-catalog",
+        "wko-gear"
+      ],
+      "terms": [
+        {"id":"kyokushin-dogi","term":"кимоно для киокусинкай","aliases":["кимоно киокушин","кимоно киокусинкай","догИ киокушин","kyokushin dogi","каратэги киокушин"],"note":"Подбирать форму по направлению. Шеврон, крой и официальную маркировку сверять с положением."},
+        {"id":"kyokushin-shins","term":"защита голени для киокусинкай","aliases":["щитки киокушин","щитки киокусин","kyokushin shin guard"],"note":"Для групп с обязательными протекторами проверяют тип изделия и регламент.","search":false},
+        {"id":"kyokushin-hands","term":"защита кисти для киокусинкай","aliases":["накладки киокушин","kyokushin hand guards"],"note":"Не приравнивать к накладкам WKF без сверки требований.","search":false}
+      ]
+    },
+    {
+      "id": "vbe",
+      "family": "traditional",
+      "title": "Восточное боевое единоборство",
+      "names": [
+        "ВБЕ",
+        "восточное боевое единоборство",
+        "сётокан",
+        "сетокан",
+        "шотокан",
+        "сито-рю",
+        "сито рю",
+        "кобудо",
+        "вьет во дао"
+      ],
+      "scope": "Название дисциплины важно для выбора экипировки. Регламент ВБЕ разделяет требования по своей программе. Общий запрос «каратэ» этого различия не отражает.",
+      "sources": [
+        "vbe-rules"
+      ],
+      "terms": [
+        {"id":"vbe-shotokan","term":"форма для сётокан","aliases":["кимоно шотокан","кимоно сетокан","shotokan gi","сётокан каратэги"],"note":"Выбирать по точному направлению и дисциплине. Соревнования по сётокан могут ссылаться на отдельные правила.","search":false},
+        {"id":"vbe-kobudo","term":"форма для кобудо","aliases":["кимоно кобудо","форма кобудо","kobudo uniform"],"note":"Подбор формы по возрасту и положению. Сведения о товаре и наличии брать из каталога.","search":false},
+        {"id":"vbe-protection","term":"защита в дисциплинах ВБЕ","aliases":["экипировка вбe","защита сито-рю","накладки сетокан"],"note":"Уточнить разновидность программы и документ, прежде чем искать тип защиты.","search":false}
+      ]
+    },
+    {
+      "id": "allstyle-karate",
+      "family": "traditional",
+      "title": "Всестилевое карате",
+      "names": [
+        "всестилевое карате",
+        "всестилевое каратэ",
+        "всестилка",
+        "ВК",
+        "ФВКР"
+      ],
+      "scope": "Для всестилевого карате используются обозначения дисциплин из положения. Короткие коды оставлять в контексте турнира.",
+      "sources": [
+        "allstyle-calendar"
+      ],
+      "terms": [
+        {"id":"allstyle-ok","term":"ограниченный контакт","aliases":["ОК","ограниченный контакт всестилевое"],"note":"Одно из обозначений программы. Запрос «ок» без контекста оставлять как реплику.","search":false},
+        {"id":"allstyle-pk","term":"полный контакт","aliases":["ПК","полный контакт всестилевое"],"note":"Проверить, какое соревнование имеется в виду. «ПК» без контекста может означать другое.","search":false},
+        {"id":"allstyle-sz","term":"полный контакт в средствах защиты","aliases":["СЗ","СЗ карате","контакт в средствах защиты"],"note":"Уточнить конструкцию и состав защитного комплекта по положению турнира.","search":false}
+      ]
+    },
+    {
+      "id": "kudo",
+      "family": "traditional",
+      "title": "Кудо",
+      "names": [
+        "кудо",
+        "kudo",
+        "дайдо дзюку",
+        "daido juku",
+        "КИФ",
+        "KIF",
+        "ФКР кудо"
+      ],
+      "scope": "Форма и защитный шлем зависят от требований соревнования. «Шлем-маска» — слишком широкое описание для подтверждения допуска.",
+      "sources": [
+        "kudo-ru",
+        "kudo-gear",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"kudogi","term":"кимоно для кудо","aliases":["кудоги","кудо-ги","кудо ги","кудошное кимоно","kudogi","kudo gi","kudo dogi"],"note":"Форма для кудо. Проверить соответствие спортивной дисциплине и варианту турнира."},
+        {"id":"kudo-helmet","term":"шлем для кудо","aliases":["кудошлем","шлем кудо","супер сейф","супер-сейф","суперсейф","super safe","supersafe","kudo helmet"],"note":"Super Safe — торговое обозначение конкретного типа шлема. Для подбора искать шлем Кудо и проверять точную модель, маску и маркировку.","sources":["kudo-gear"],"attested":["суперсейф"]},
+        {"id":"kudo-gloves","term":"перчатки для кудо","aliases":["кудо накладки","кудо перчи","перчатки кудо","kudo gloves"],"note":"Защита кисти для кудо. Подбирают по размерам и формату соревнования."}
+      ]
+    },
+    {
+      "id": "arb",
+      "family": "traditional",
+      "title": "Армейский рукопашный бой",
+      "names": [
+        "АРБ",
+        "армейский рукопашный бой",
+        "армейская рукопашка",
+        "army hand-to-hand combat"
+      ],
+      "scope": "Защиту и форму для АРБ сверять по собственному положению. Общая маркировка «для рукопашного боя» требует уточнения.",
+      "sources": [
+        "arb-ru",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"arb-helmet","term":"шлем для АРБ","aliases":["арб шлем","шлем арб","шлем арб с решеткой","шлем арб с решёткой","маска арб","шлем клетка арб","шлем с забралом арб"],"note":"Уточнить тип лицевой маски и допустимость в возрастной группе. Прозрачный шлем Кудо — другой товар."},
+        {"id":"arb-gloves","term":"перчатки для АРБ","aliases":["перчи арб","арб перчатки","краги арб","арб краги"],"note":"Проверить форму и конструкцию, которые требуются положением АРБ."},
+        {"id":"arb-uniform","term":"кимоно для АРБ","aliases":["форма АРБ","арб кимоно","армейское кимоно","кимоно армейский рукопашный бой"],"note":"По запросу отделять российский АРБ от рукопашного боя ВФРБ."},
+        {"id":"arb-feet","term":"защита стопы для АРБ","aliases":["футы арб","защита ног арб","щитки арб"],"note":"Уточнить, закрывается только стопа или стопа и голень по положению.","search":false}
+      ]
+    },
+    {
+      "id": "hand-to-hand",
+      "family": "traditional",
+      "title": "Рукопашный бой",
+      "names": [
+        "рукопашный бой",
+        "рукопашка",
+        "РБ",
+        "ВФРБ",
+        "ФРБ"
+      ],
+      "scope": "Термин «рукопашка» может означать АРБ или рукопашный бой. Для допуска нужно название дисциплины и регламент.",
+      "sources": [
+        "rb-ru",
+        "rb-gear",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"rb-uniform","term":"кимоно для рукопашного боя","aliases":["кимоно рукопашка","форма рукопашка","костюм для рукопашного боя","форма рб"],"note":"При запросе «рукопашка» уточнить АРБ или ВФРБ, если цель — соревнования."},
+        {"id":"rb-gloves","term":"перчатки для рукопашного боя","aliases":["перчи рукопашка","перчатки рб","рукопашные перчатки","перчи рб"],"note":"Сверять требования по возрасту и дисциплине. Одинаковый цвет или число унций не подтверждают универсальный допуск."},
+        {"id":"rb-protection","term":"защита для рукопашного боя","aliases":["шлем рб","щитки рб","накладки рб"],"note":"Уточнить, нужна ли защита головы, ног или другой элемент.","search":false}
+      ]
+    },
+    {
+      "id": "taolu",
+      "family": "traditional",
+      "title": "Ушу-таолу",
+      "names": [
+        "ушу таолу",
+        "таолу",
+        "taolu",
+        "IWUF"
+      ],
+      "scope": "Таолу — выполнение комплексов. Защитный комплект саньда относится к контактной дисциплине.",
+      "sources": [
+        "iwuf-taolu",
+        "iwuf-rules"
+      ],
+      "terms": [
+        {"id":"taolu-uniform","term":"форма для ушу-таолу","aliases":["костюм таолу","форма ушу гимнастика","taolu uniform","таолу костюм"],"note":"Одежду проверять по виду программы, возрасту и регламенту.","search":false},
+        {"id":"taolu-shoes","term":"обувь для ушу","aliases":["тапочки ушу","туфли ушу","обувь таолу","wushu shoes"],"note":"Уточнить, нужна ли тренировочная обувь или разрешённая для конкретного турнира.","search":false}
+      ]
+    },
+    {
+      "id": "aikido",
+      "family": "traditional",
+      "title": "Айкидо",
+      "names": [
+        "айкидо",
+        "aikido",
+        "Айкикай",
+        "Aikikai",
+        "Хомбу",
+        "Hombu"
+      ],
+      "scope": "Форма для додзё зависит от школы и ступени. В каталоге различать верхнюю форму и хакама.",
+      "sources": [
+        "aikikai-faq",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"aikido-gi","term":"кимоно для айкидо","aliases":["айкидо ги","айкидоги","айкидо-ги","кимоно айкикай","aikidogi","aikido keikogi"],"note":"Тренировочная форма. Состав комплекта и допуск в додзё уточняются отдельно."},
+        {"id":"hakama","term":"хакама","aliases":["хакамы","юбка айкидо","штаны-юбка айкидо","hakama","aikido hakama"],"note":"Широкая складчатая одежда. Термин встречается и в кэндо. Крой по виду спорта уточнять."},
+        {"id":"keikogi","term":"кэйкоги","aliases":["кейкоги","кейко-ги","keikogi","dōgi"],"note":"Общее название тренировочной формы. По одному слову выбрать спортивную категорию нельзя.","search":false}
+      ]
+    },
+    {
+      "id": "kendo",
+      "family": "traditional",
+      "title": "Кэндо",
+      "names": [
+        "кэндо",
+        "кендо",
+        "kendo",
+        "AJKF"
+      ],
+      "scope": "Справочная дисциплина. Наличие специализированных товаров подтверждается в каталоге.",
+      "sources": [
+        "kendo-faq"
+      ],
+      "terms": [
+        {"id":"kendo-bogu","term":"богу","aliases":["богy","bōgu","bogu","доспех кендо","защита кэндо","kendo armor"],"note":"Комплект защитного снаряжения. Сверить, идёт ли речь о наборе или отдельных элементах.","search":false},
+        {"id":"kendo-men","term":"мэн","aliases":["мэн кэндо","men kendo","маска кэндо","шлем кэндо"],"note":"Защита головы и лица. Слово men без контекста не обрабатывается как товар.","search":false},
+        {"id":"kendo-kote","term":"котэ","aliases":["коте","kote","перчатки кэндо"],"note":"Рукавицы для кэндо.","search":false},
+        {"id":"kendo-do-tare","term":"до и тарэ","aliases":["dō kendo","до кэндо","tare kendo","тарэ кэндо","нагрудник кэндо"],"note":"До — защита корпуса. Тарэ — поясной элемент защиты. Слово «до» в запросах до цены не относится к экипировке.","search":false}
+      ]
+    },
+    {
+      "id": "sumo",
+      "family": "traditional",
+      "title": "Сумо",
+      "names": [
+        "сумо",
+        "sumo",
+        "IFS",
+        "МФС"
+      ],
+      "scope": "Справочная дисциплина. Соревновательную категорию и обязательный комплект проверять по регламенту.",
+      "sources": [
+        "sumo-rules"
+      ],
+      "terms": [
+        {"id":"mawashi","term":"маваси","aliases":["маваши","маващи","mawashi","пояс для сумо"],"note":"Специальный пояс сумо. Не путать с поясами ранга в других дисциплинах.","search":false},
+        {"id":"sumo-wear","term":"трико для сумо","aliases":["форма сумо","sumo uniform","sumo wear"],"note":"В зависимости от программы проверяют одежду, разрешённую под маваси.","search":false}
+      ]
+    },
+    {
+      "id": "capoeira",
+      "family": "traditional",
+      "title": "Капоэйра",
+      "names": [
+        "капоэйра",
+        "капоейра",
+        "capoeira",
+        "WCF",
+        "рода capoeira"
+      ],
+      "scope": "Справочная дисциплина. Рода, клубные и соревновательные форматы требуют отдельных правил.",
+      "sources": [
+        "wcf-rules"
+      ],
+      "terms": [
+        {"id":"capoeira-pants","term":"брюки для капоэйры","aliases":["абада","абады","abada","abadá","капоэйра штаны"],"note":"Широкое название брюк или формы. Цвет и эмблемы зависят от школы или соревнования.","search":false},
+        {"id":"capoeira-cord","term":"шнур для капоэйры","aliases":["корда","кордау","corda","cordão","пояс капоэйра"],"note":"Цветовой шнур школы. Ранги сопоставляются в пределах применяемой системы.","search":false}
+      ]
+    },
+    {
+      "id": "shared-protection",
+      "family": "shared",
+      "title": "Общая защита и экипировка",
+      "names": [
+        "защита",
+        "защ",
+        "протекторы",
+        "экип",
+        "экипа",
+        "экипировка",
+        "защитка"
+      ],
+      "scope": "Слова общего назначения уточняют по области защиты, виду спорта, размеру и цели покупки.",
+      "sources": [
+        "hp-catalog",
+        "fairtex-guards",
+        "wkf-approved"
+      ],
+      "terms": [
+        {"id":"protective-kit","term":"защитная экипировка","aliases":["комплект защиты","защитный набор","комплект экипа","protection kit","protective set"],"note":"Уточнить вид спорта и элементы набора. Разделять покупку комплекта и список отдельных товаров.","search":false},
+        {"id":"chest-protection","term":"защита груди","aliases":["грудной протектор","женский протектор","грудник","защитный топ","ladies chest protector","breast protector"],"note":"Защита груди и нагрудник корпуса могут быть отдельными товарами. Уточнить конструкцию, размер и правила турнира."},
+        {"id":"headgear-face","term":"шлем с маской","aliases":["фуллфейс шлем","шлем с лицевой маской","шлем с закрытым лицом","full face headgear"],"note":"Уточнить прозрачный экран, решётку или бампер и вид спорта. При подборе под соревнования требуется точная модель."},
+        {"id":"forearm-guards","term":"защита предплечья","aliases":["щитки предплечья","накладки на предплечья","наручи тхэквондо","forearm guards"],"note":"Проверяйте, какую часть предплечья закрывает накладка, её размер и крепление."},
+        {"id":"shin-guards-general","term":"защита голени","aliases":["шингард","шингарды","шингарды на ноги","шин гарды","шин-гарды","шинпэды","шинпады","щитки на голень","накладки на голень","shin guards","shin pads"],"note":"Защита голени с разной конструкцией. Для защиты подъёма стопы уточняют наличие отдельной или встроенной накладки.","sources":["market-shin","fairtex-guards"],"attested":["шингарды"]},
+        {"id":"knee-support","term":"наколенник","aliases":["наколен","наколенники для борьбы","борцовские наколенники","knee sleeves","knee guard"],"note":"Различать мягкий протектор и эластичный суппорт. Поиск по слову «наколенник» не определяет назначение."},
+        {"id":"elbow-support","term":"налокотник","aliases":["налок","налокотники для единоборств","elbow sleeve","elbow protector"],"note":"Для контактной дисциплины отличать мягкую защиту от компрессионного рукава."},
+        {"id":"athletic-tape","term":"спортивный тейп","aliases":["тейп лента","тэип","лейкопластырь спортивный","спорттейп","athletic tape","finger tape"],"note":"Уточнить эластичность, ширину и назначение. По слову «тейп» нельзя подтвердить допуск бинтования на соревновании."},
+        {"id":"finger-tape","term":"тейп для пальцев","aliases":["узкий тейп","пальцевой тейп","бжж тейп","bjj finger tape","борцовский тейп"],"note":"Узкая лента для пальцев. Точный размер и свойства проверять в карточке."},
+        {"id":"compression-set","term":"компрессионная одежда","aliases":["компрессионка","компрессуха","термушка","compression wear","compression kit"],"note":"Уточнить верх, тайтсы или комплект. Термобельё и тренировочная компрессия могут быть разными товарами.","search":false},
+        {"id":"martial-belt","term":"пояс для единоборств","aliases":["оби","пояса спорт","пояс к кимоно","martial arts belt"],"note":"Уточнить вид спорта, длину, цвет, полосы и требования к маркировке.","search":false},
+        {"id":"training-mat","term":"мат для единоборств","aliases":["татами","даянг","доянг","додзянг","пазл татами","маты ласточкин хвост","puzzle mat"],"note":"Маты и покрытие для зала. Tatami и dojang часто обозначают площадку или зал. Толщину, жёсткость и размеры уточнять отдельно.","search":false},
+        {"id":"makiwara","term":"макивара","aliases":["макивары","макиварка","макивара настенная","makiwara pad","makiwara board"],"note":"Уточнить, имеется ли в виду удерживаемая подушка или закреплённый снаряд."}
+      ]
+    },
+    {
+      "id": "retail-language",
+      "family": "shared",
+      "title": "Марки, размеры и материалы",
+      "names": [
+        "бренд",
+        "модель",
+        "арт",
+        "артикул",
+        "SKU",
+        "штрихкод",
+        "размер",
+        "цвет"
+      ],
+      "scope": "Артикул, номер модели, размеры и маркировку сохраняют. Варианты записи нужны для поиска. Они не подтверждают состав изделия, наличие или соревнования.",
+      "sources": [
+        "hp-brands",
+        "hp-catalog"
+      ],
+      "terms": [
+        {"id":"fairtex-brand","term":"Fairtex","aliases":["фаиртэкс","фэйртэкс","фаир текс","феир текс","fair tex","фаритекс"],"note":"Варианты ввода для поиска бренда. Бренд не определяет модель, тип и допуск."},
+        {"id":"green-hill-brand","term":"Green Hill","aliases":["грин-хилл","грин-хил","грин хилл спорт","green-hill","гринхилл спорт"],"note":"Сохранять номер модели, например BGR или BGP. Явный артикул искать отдельно."},
+        {"id":"twins-brand","term":"Twins","aliases":["твинс специал","твинз","твинз спешл","твингс","twins special thailand"],"note":"Учитывать варианты записи Twins Special."},
+        {"id":"clinch-brand","term":"Clinch","aliases":["клинч спорт","клинч бокс","клинч бренд"],"note":"Термин «клинч» также обозначает элемент единоборств. Название бренда следует подставлять в товарном контексте."},
+        {"id":"venum-brand","term":"Venum","aliases":["венум спорт","вэнум","вэнюм","веном спорт"],"note":"Сохранять название линейки и артикул."},
+        {"id":"khan-brand","term":"Khan","aliases":["кхан спорт","хан спорт","кхан каратэ"],"note":"Товарный запрос на марку Khan. Произношение и надпись на товаре могут отличаться."},
+        {"id":"adidas-brand","term":"Adidas","aliases":["адик","адик спорт","ади дас","адидас спорт"],"note":"Поисковые варианты. Название бренда оставлять вместе с моделью."},
+        {"id":"kudowear-brand","term":"KUDOWEAR","aliases":["кудо-вэар","кудовэр","кудо уэр","кудо вэр"],"note":"Марка экипировки для кудо. Общий запрос о Кудо не равен запросу этой марки."},
+        {"id":"sku-id","term":"артикул","aliases":["арт","арт.","артик","sku","part number","код товара"],"note":"Код и артикул могут быть отдельными полями в 1С. Сохранять дефисы, буквы и цифры.","search":false},
+        {"id":"boxing-ounce","term":"унции","aliases":["унц.","унция","10 унц","12 унц","14 унц","16 унц","10 oz.","12 oz."],"note":"В перчатках уточнение массы, физический размер и рост изделия различаются.","search":false},
+        {"id":"size-label","term":"размер экипировки","aliases":["иксэль","икс эль","икс-эль","хл","xxl","2xl","3xl","ростовка"],"note":"Нормализовать в контексте товарной характеристики. Размеры разных марок могут отличаться.","search":false},
+        {"id":"material-pu","term":"полиуретан","aliases":["пу","PU","полиур","искусственная кожа","экокожа"],"note":"PU может быть материалом покрытия, вставки или иной детали. Точный состав брать из карточки.","search":false}
+      ]
+    },
+    {
+      "id": "home-training",
+      "family": "shared",
+      "title": "Инвентарь для тренировок",
+      "names": [
+        "снаряды",
+        "инвентарь",
+        "оборудование зала"
+      ],
+      "scope": "Уточнять назначение, размер, тип крепления и точное название из карточки товара.",
+      "sources": [
+        "hp-catalog",
+        "fairtex-coach"
+      ],
+      "terms": [
+        {"id":"bag-hanger","term":"кронштейн для боксерского мешка","aliases":["подвес для груши","крепеж для мешка","держатель боксерского мешка","bag mount","heavy bag hanger"],"note":"Уточнить стеновое, потолочное или отдельно стоящее крепление. Допустимая нагрузка берётся из спецификации."},
+        {"id":"jump-rope","term":"скакалка","aliases":["скоростная скакалка","прыгалка для бокса","скакалка тросик","speed rope","skipping rope"],"note":"Тросовая, классическая и утяжелённая скакалки относятся к разным исполнениям."},
+        {"id":"dummy","term":"борцовский манекен","aliases":["манекен для борьбы","манекен для бросков","кукла для борьбы","grappling dummy","wrestling dummy"],"note":"Отличать борцовский манекен от стоячего ударного снаряда. Проверять массу, рост и исполнение."},
+        {"id":"water-bag","term":"водоналивной мешок","aliases":["водяная груша","водоналивная груша","аквабэг","аква-бэг","water punching bag","aqua bag"],"note":"Подбор относится к ударным снарядам. В фитнесе aqua bag может означать тренировочный мешок с водой для силовой нагрузки.","search":false},
+        {"id":"hand-gripper","term":"кистевой эспандер","aliases":["эспандер для кисти","гриппер","кистевой тренажер","hand gripper"],"note":"Уточнить конструкцию и шкалу сопротивления."}
+      ]
+    }
+  ],
+  "ambiguities": [
+    {
+      "id": "blinchiki",
+      "aliases": [
+        "блинчики",
+        "блинчиков",
+        "блинчиками",
+        "блины"
+      ],
+      "question": "Под «блинчиками» имеете в виду снарядные перчатки или диски для штанги?",
+      "sources": [
+        "fbrk-gear",
+        "hp-catalog"
+      ],
+      "cases": [
+        {
+          "term": "снарядные перчатки",
+          "replacement": "снарядные перчатки",
+          "cues": [
+            "бокс",
+            "мешок",
+            "мешка",
+            "мешку",
+            "мешком",
+            "мешке",
+            "груша",
+            "груше",
+            "грушу",
+            "груши",
+            "перчатки",
+            "перчаток",
+            "снаряд",
+            "снарядов"
+          ]
+        },
+        {
+          "term": "диски для штанги",
+          "replacement": "диски",
+          "cues": [
+            "штанга",
+            "штанги",
+            "штангу",
+            "штангой",
+            "гриф",
+            "грифа",
+            "грифу",
+            "грифом",
+            "диски",
+            "диск",
+            "железо",
+            "гантели"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fkr",
+      "aliases": [
+        "фкр"
+      ],
+      "question": "Какую ФКР имеете в виду: Федерацию карате России или Федерацию кикбоксинга России? Укажите дисциплину или турнир.",
+      "sources": [
+        "wkf-docs",
+        "kick-calendar",
+        "ru-federations"
+      ],
+      "cases": [
+        {
+          "term": "каратэ",
+          "replacement": "каратэ",
+          "cues": [
+            "каратэ",
+            "карате",
+            "wkf",
+            "кумитэ",
+            "кумите",
+            "ката",
+            "kumite"
+          ]
+        },
+        {
+          "term": "кикбоксинг",
+          "replacement": "кикбоксинг",
+          "cues": [
+            "кикбоксинг",
+            "кикбоксинга",
+            "кикбокс",
+            "wako",
+            "вако",
+            "k1",
+            "к1",
+            "к-1",
+            "лоу-кик",
+            "лоукик",
+            "поинтфайтинг",
+            "лайт-контакт",
+            "кик-лайт",
+            "фулл-контакт"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gi",
+      "aliases": [
+        "ги",
+        "gi",
+        "кимуха"
+      ],
+      "ignore": ["no gi", "no-gi", "ноу ги", "ноу-ги", "без ги"],
+      "question": "Для какой дисциплины нужна форма? Уточните, это дзюдо, карате, БЖЖ, айкидо или другой вид единоборств.",
+      "sources": [
+        "ijf-judogi",
+        "wkf-approved",
+        "ibjjf-uniform",
+        "aikikai-faq",
+        "uww-grappling"
+      ],
+      "cases": [
+        {
+          "term": "кимоно для дзюдо",
+          "replacement": "кимоно",
+          "cues": [
+            "дзюдо",
+            "judo",
+            "ijf",
+            "фдр",
+            "дзюдоги"
+          ]
+        },
+        {
+          "term": "кимоно для карате",
+          "replacement": "кимоно",
+          "cues": [
+            "каратэ",
+            "карате",
+            "wkf",
+            "кумитэ",
+            "кумите",
+            "ката",
+            "киокушин",
+            "киокусинкай"
+          ]
+        },
+        {
+          "term": "кимоно для джиу-джитсу",
+          "replacement": "кимоно",
+          "cues": [
+            "бжж",
+            "bjj",
+            "ibjjf",
+            "джиу-джитсу",
+            "джиу джитсу"
+          ]
+        },
+        {
+          "term": "кимоно для айкидо",
+          "replacement": "кимоно",
+          "cues": [
+            "айкидо",
+            "aikido",
+            "айкикай",
+            "aikikai"
+          ]
+        },
+        {
+          "term": "кимоно для грэпплинга",
+          "replacement": "кимоно",
+          "cues": [
+            "грэпплинг",
+            "грепплинг",
+            "грэпплинга",
+            "grappling"
+          ]
+        },
+        {
+          "term": "форма для кудо",
+          "replacement": "кимоно",
+          "cues": [
+            "кудо",
+            "kudo"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shin-guards",
+      "aliases": [
+        "щитки",
+        "щитков"
+      ],
+      "question": "Какие щитки нужны — на голень, на стопу или на предплечья? Укажите вид спорта.",
+      "sources": [
+        "hp-catalog",
+        "fairtex-guards",
+        "wkf-approved",
+        "wt-approval"
+      ],
+      "cases": [
+        {
+          "term": "защита голени",
+          "cues": [
+            "голень",
+            "голени",
+            "голеней",
+            "муайтай",
+            "муай-тай",
+            "тайский бокс",
+            "муай тай",
+            "мма",
+            "панкратион",
+            "wkf",
+            "вкф",
+            "кумитэ",
+            "кумите"
+          ]
+        },
+        {
+          "term": "защита стопы",
+          "cues": [
+            "стопа",
+            "стопы",
+            "стопу",
+            "стоп",
+            "футы",
+            "подъем стопы"
+          ]
+        },
+        {
+          "term": "защита предплечья",
+          "cues": [
+            "предплечья",
+            "предплечье",
+            "предплечий",
+            "на руки"
+          ]
+        }
+      ],
+      "allow_combined": true
+    }
+  ]
+}

@@ -198,3 +198,20 @@ Thumbs.db
 !openwebui-coding/.env.example
 !/lan-hub/models/
 !/docs/manager-qa-2026-11-25.md
+
+# Проверенные исходники и тесты помощников
+!/manager-demo/
+/manager-demo/*
+!/manager-demo/web/
+/manager-demo/web/*
+!/manager-demo/qa/
+/manager-demo/qa/*
+!/manager-demo/archive_catalog.py
+!/manager-demo/test_archive_catalog.py
+!/manager-demo/web/manager_catalog.py
+!/manager-demo/web/manager_knowledge.py
+!/manager-demo/web/manager-knowledge.json
+!/manager-demo/web/combat-terminology.json
+!/manager-demo/web/test_manager_terminology.py
+!/manager-demo/qa/equipment-slang-50.json
+!/docs/manager-equipment-slang.md
