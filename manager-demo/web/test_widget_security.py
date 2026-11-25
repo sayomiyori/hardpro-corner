@@ -3,6 +3,8 @@
 import importlib.util
 import json
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
 from shop_dialog import HELP
@@ -81,6 +83,80 @@ class WidgetSecurityTest(unittest.TestCase):
                 "turns": ["А такие же на 14 унций есть?"], "context": {**context, "product": 999},
             })
             self.assertEqual(unknown.json()["answer"], HELP)
+
+    def test_handoff_requires_confirmed_transport_and_reuses_receipt(self):
+        payload = {"handoff": {"id": "0123456789abcdef" * 2, "question": "Есть такая модель на 14 oz?",
+                              "context": {"product": 10, "sku": 2, "city": "Симферополь"}}}
+        config = {"MAX_SUPPORT_TOKEN": "synthetic", "MAX_SUPPORT_CHAT_ID": "-101"}
+        with TemporaryDirectory() as state, patch.dict("os.environ", {**config, "MAX_SUPPORT_STATE": state}), (
+            patch.object(self.widget, "current_store", return_value=self.catalog)
+        ), patch.object(self.widget.max_handoff, "send_to_max") as send:
+            self.assertEqual(self.client.post("/ask", headers=self.headers, json={"handoff_status": True}).json(),
+                             {"available": True})
+            send.assert_not_called()
+            response = self.client.post("/ask", headers=self.headers, json=payload)
+            self.assertEqual(response.status_code, 201)
+            self.assertEqual(response.json(), {"status": "delivered", "receipt": "HP-0123456789AB",
+                                               "store_hours": "Вт–Сб 11:00–19:00"})
+            message = send.call_args.args[0]
+            self.assertIn("Вариант: 14 oz, Черный", message)
+            self.assertIn("Магазин: Симферополь", message)
+            self.assertIn("Вопрос: Есть такая модель на 14 oz?", message)
+            again = self.client.post("/ask", headers=self.headers, json=payload)
+            self.assertEqual(again.json(), response.json())
+            send.assert_called_once()
+            self.assertNotIn(payload["handoff"]["question"].encode(), (Path(state) / "receipts.sqlite3").read_bytes())
+
+    def test_handoff_refuses_private_questions_and_never_retries_ambiguous_delivery(self):
+        payload = {"handoff": {"id": "a" * 32, "question": "Дайте совет по выбору капы."}}
+        with TemporaryDirectory() as state, patch.dict("os.environ", {
+            "MAX_SUPPORT_TOKEN": "synthetic", "MAX_SUPPORT_CHAT_ID": "-101", "MAX_SUPPORT_STATE": state,
+        }), patch.object(self.widget.max_handoff, "send_to_max", side_effect=TimeoutError) as send:
+            private = {"handoff": {**payload["handoff"], "question": "Мой телефон +7 000 000 00 00"}}
+            self.assertEqual(self.client.post("/ask", headers=self.headers, json=private).status_code, 400)
+            send.assert_not_called()
+            for _ in range(2):
+                response = self.client.post("/ask", headers=self.headers, json=payload)
+                self.assertEqual(response.status_code, 202)
+                self.assertEqual(response.json()["status"], "unconfirmed")
+            changed = {"handoff": {**payload["handoff"], "question": "Есть капа для тренировок?"}}
+            self.assertEqual(self.client.post("/ask", headers=self.headers, json=changed).status_code, 409)
+            send.assert_called_once()
+
+    def test_handoff_validates_variant_and_obeys_global_rate_limit(self):
+        payload = {"handoff": {"id": "b" * 32, "question": "Есть такой вариант?",
+                              "context": {"product": 10, "sku": 4}}}
+        with TemporaryDirectory() as state, patch.dict("os.environ", {
+            "MAX_SUPPORT_TOKEN": "synthetic", "MAX_SUPPORT_CHAT_ID": "-101", "MAX_SUPPORT_STATE": state,
+        }), patch.object(self.widget, "current_store", return_value=self.catalog), (
+            patch.object(self.widget.max_handoff, "REQUEST_LIMIT", 1)
+        ), patch.object(self.widget.max_handoff, "send_to_max") as send:
+            self.assertEqual(self.client.post("/ask", headers=self.headers, json=payload).json()["status"], "catalog_changed")
+            send.assert_not_called()
+            payload["handoff"]["context"]["sku"] = 2
+            self.assertEqual(self.client.post("/ask", headers=self.headers, json=payload).status_code, 201)
+            payload["handoff"]["id"] = "c" * 32
+            self.assertEqual(self.client.post("/ask", headers=self.headers, json=payload).status_code, 429)
+            send.assert_called_once()
+
+    def test_max_transport_sends_to_configured_chat_and_requires_receipt(self):
+        transport = self.widget.max_handoff
+        with patch.dict("os.environ", {"MAX_SUPPORT_TOKEN": "test-only", "MAX_SUPPORT_CHAT_ID": "-101"}), (
+            patch.object(transport, "HTTPSConnection")
+        ) as connect:
+            conn = connect.return_value
+            response = conn.getresponse.return_value
+            response.status = 200
+            response.read.return_value = b'{"message":{"body":{"mid":"test-receipt"}}}'
+            transport.send_to_max("Контрольное сообщение")
+            self.assertEqual(connect.call_args.args, ("platform-api2.max.ru",))
+            method, route, body, headers = conn.request.call_args.args
+            self.assertEqual((method, route), ("POST", "/messages?chat_id=-101"))
+            self.assertEqual(headers["Authorization"], "test-only")
+            self.assertEqual(json.loads(body)["text"], "Контрольное сообщение")
+            response.read.return_value = b'{"message":{"body":{}}}'
+            with self.assertRaises(ValueError):
+                transport.send_to_max("Контрольное сообщение")
 
     def test_private_requests_return_without_reading_catalogue(self):
         with patch.object(self.widget, "current_store") as read:
