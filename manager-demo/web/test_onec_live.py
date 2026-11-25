@@ -66,7 +66,7 @@ class ReaderTest(unittest.TestCase):
         answer = fresh.answer(["DEMO 12 oz", "Покажи количество этих 3х перчаток"], parse)
         self.assertEqual(answer.count("Склад А — свободно 1."), 3)
 
-    def test_budget_requires_confirmed_price_and_stock_in_every_requested_store(self):
+    def test_budget_requires_price_and_stock_in_at_least_one_store_by_default(self):
         rows = [
             {**self.item, "код": str(i), "product": product, "товар": f"Снарядные перчатки {name}"}
             for i, (product, name) in enumerate([(P, "Альфа"), (P2, "Бета"), (P3, "Гамма"), (P4, "Дельта")], 1)
@@ -76,16 +76,20 @@ class ReaderTest(unittest.TestCase):
         prices = {(P, V): Decimal("5000"), (P2, V): Decimal("999.99"), (P3, V): Decimal("5000.01")}
         self.client.offers = Mock(return_value=(datetime.now(timezone.utc), balances, prices))
         def parse(messages):
-            self.assertEqual(json.loads(messages[1]["content"])["вопрос"], "найди мне снарядные перчатки")
+            self.assertTrue(json.loads(messages[1]["content"])["вопрос"].startswith("найди мне снарядные перчатки"))
             return '{"product":"снарядные перчатки","variant":"","warehouse":""}'
         cat = LiveCatalog({"склады": list(self.client.stores), "товары": rows}, self.client)
         answer = cat.answer(["Найди мне снарядки до 5к рублей"], parse)
         self.assertIn("Альфа", answer)
-        self.assertNotRegex(answer, "Бета|Гамма|Дельта")
+        self.assertIn("Бета", answer)
+        self.assertNotRegex(answer, "Гамма|Дельта")
         self.assertIn("5 000,00 ₽", answer)
         self.assertIn("Склад Б — свободно 1.", answer)
         self.assertIn("без подтверждённой розничной цены", answer)
         self.client.offers.assert_called_once_with([P, P2, P3, P4])
+        answer = cat.answer(["Найди мне снарядки до 5к рублей в обоих магазинах"], parse)
+        self.assertIn("Альфа", answer)
+        self.assertNotIn("Бета", answer)
 
     def test_details_are_read_for_the_exact_product(self):
         reader = self.client

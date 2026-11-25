@@ -9,6 +9,22 @@ from shop_dialog import INSTRUCTIONS, normalize
 
 MSK = timezone(timedelta(hours=3))
 BUSINESS = re.compile(r"\b(?:продаж\w*|выручк\w*|закуп\w*|заказ\w*)\b")
+AGGREGATE_WORDS = re.compile(
+    r"(?:а|и|по|с|за|до|на|от|к|в|из|1с|1c|р|рубл\w*|сумм\w*|итог\w*|"
+    r"общ\w*|сводк\w*|отчет\w*|продаж\w*|выручк\w*|закуп\w*|"
+    r"сколько|количеств\w*|оборот\w*|объем\w*|был\w*|стало|продал\w*|закупил\w*|"
+    r"покаж\w*|скажи\w*|каки\w*|как\w*|дай|посчитай\w*|проверь\w*|пожалуйста|"
+    r"включительно|пока|не|указа\w*|можно|мне|нам|\bво\b|"
+    r"сегодня|вчера|позавчера|текущ\w*|прошл\w*|предыдущ\w*|последн\w*|"
+    r"месяц\w*|недел\w*|день|дня|дней|период\w*|год\w*|числ\w*|"
+    r"январ\w*|феврал\w*|март\w*|апрел\w*|ма[йяе]|июн\w*|июл\w*|август\w*|"
+    r"сентябр\w*|октябр\w*|ноябр\w*|декабр\w*|\d+)"
+)
+ALL_COMPANY = re.compile(r"\b(?:по всем магазинам|по (?:всей )?компании|по сети|в целом|"
+                         r"с учетом обоих магазинов|а теперь вместо товара)\b")
+SHARE_REPORT = re.compile(r"\b(?:отправ\w*|перешл\w*|пошл\w*|подели\w*)\b.*\b(?:сводк\w*|отчет\w*)\b|"
+                          r"\b(?:отправ\w*|перешл\w*|пошл\w*|подели\w*)\b.*\b(?:клиент\w*|покупател\w*)\b")
+FILTER_REPLY = "Могу показать общие продажи или закупки из 1С. Для итога по конкретному товару, магазину или другому срезу нужен отдельный отчёт."
 ORDER_NUMBER = re.compile(r"[A-Za-zА-Яа-яЁё0-9-]{1,32}")
 MARKED_ORDER_NUMBER = re.compile(r"\bзаказ(?:а|у|ом|е)?(?:\s+покупателя)?\s*[№#]\s*([A-Za-zА-Яа-яЁё0-9-]+)", re.I)
 NUMBER = re.compile(r"[+-]?[0-9]{1,20}(?:[.,][0-9]{1,10})?")
@@ -30,6 +46,8 @@ def request(question, infer, today):
     phrase = normalize(question)
     if not BUSINESS.search(phrase) or INSTRUCTIONS.search(phrase):
         return None
+    if SHARE_REPORT.search(phrase):
+        return "Могу показать внутреннюю сводку в чате менеджера. Отправить её покупателю отсюда нельзя."
     try:
         item = json.loads(infer(PARSE, json.dumps({"сегодня": today.isoformat(), "вопрос": question},
                                                 ensure_ascii=False)))
@@ -40,8 +58,11 @@ def request(question, infer, today):
         return None
     action = item["action"]
     if action == "filter":
-        return "Могу показать общие продажи или закупки по данным 1С за указанный период."
+        return FILTER_REPLY
     if action in REPORT_NAMES:
+        words = re.findall(r"\w+", ALL_COMPANY.sub(" ", phrase))
+        if any(not AGGREGATE_WORDS.fullmatch(word) for word in words):
+            return FILTER_REPLY
         try:
             start, end = date.fromisoformat(item["start"]), date.fromisoformat(item["end"])
         except ValueError:
@@ -57,8 +78,10 @@ def request(question, infer, today):
         if (len(marked) > 1 or not ORDER_NUMBER.fullmatch(number)
                 or not any(c.isascii() and c.isdigit() for c in number) or number not in spoken):
             return "Назови точный номер заказа из 1С или с сайта. Для заказа прошлых лет укажи год."
-        if not re.fullmatch(r"[0-9]{4}", year) or not 1900 <= int(year) <= today.year:
+        if not re.fullmatch(r"[0-9]{4}", year) or int(year) < 1900:
             return "Укажи год заказа четырьмя цифрами."
+        if int(year) > today.year:
+            return f"{year} год ещё не наступил. Укажи год заказа не позднее {today.year}."
         return ("/v1/order", {"number": number, "year": year})
     return None
 

@@ -24,13 +24,13 @@ LIVE_SNAPSHOT = ROOT / "onec-pilot/live-snapshot.json"
 MSK = timezone(timedelta(hours=3))
 sys.path.append(str(RELEASE))
 from assistant_dialog import catalog_turns, decision, health_question, model_json, with_intro
-from manager_catalog import ManagerCatalog
+from manager_catalog import TOPIC_RESET, ManagerCatalog
 import manager_reports
 
 
 from site_catalog import read_store
 from shop_dialog import ShopDialog, blocked
-from onec_live import configured_reader
+from onec_live import KNOWLEDGE, configured_reader
 from manager_knowledge import competition_answer, definition_answer, merge_clarification, resolve_context
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
@@ -39,14 +39,15 @@ reader_config = os.environ.get("ONEC_READER_CONFIG")
 keys = {role: os.environ[role.upper() + "_TOKEN"] for role in models}
 
 _snapshot = {"path": None, "mtime": 0.0, "stamp": "", "data": None}
-_saved_at = 0.0
+_saved_at = None
+_snapshot_lock = threading.Lock()
 _link_down_until = 0.0
 _link_lock = threading.Lock()
 
 
 def snapshot_source():
     """Свежий снимок из рабочей 1С, если он есть, иначе сохранённая выгрузка."""
-    for path in (LIVE_SNAPSHOT, SNAPSHOT):
+    for path in (KNOWLEDGE, LIVE_SNAPSHOT, SNAPSHOT):
         try:
             return path, path.stat().st_mtime
         except OSError:
@@ -58,6 +59,14 @@ def snapshot():
     path, mtime = snapshot_source()
     if _snapshot["path"] != path or _snapshot["mtime"] != mtime:
         data = json.loads(path.read_text(encoding="utf-8"))
+        if path == KNOWLEDGE:
+            catalog, offers = data["catalog"], data["offers_by_product"]
+            rows = []
+            for row in catalog["товары"]:
+                free = offers[row["product"]]["variants"][row["id"]]["free"]
+                rows.append({**row, "склады": {name: {"свободно": quantity}
+                                               for name, quantity in free.items()}})
+            data = {**catalog, "товары": rows}
         _snapshot.update(path=path, mtime=mtime, stamp=data["момент"], data=data)
     return _snapshot["stamp"], _snapshot["data"]
 
@@ -70,15 +79,18 @@ def snapshot_catalog():
 def save_live(cat):
     """Удачное чтение 1С переживает её отключение и перезапуск сервера."""
     global _saved_at
-    if time.monotonic() - _saved_at < 300:
+    if _saved_at is not None and cat.indexed_at <= _saved_at:
         return
-    data = {"момент": datetime.now(MSK).strftime("%d.%m.%Y %H:%M МСК"),
-            "склады": list(cat.stores), "товары": cat.rows}
-    tmp = LIVE_SNAPSHOT.with_name(LIVE_SNAPSHOT.name + ".tmp")
-    tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
-    os.chmod(tmp, 0o600)
-    os.replace(tmp, LIVE_SNAPSHOT)
-    _saved_at = time.monotonic()
+    with _snapshot_lock:
+        if _saved_at is not None and cat.indexed_at <= _saved_at:
+            return
+        data = {"момент": cat.indexed_at.strftime("%d.%m.%Y %H:%M МСК"),
+                "склады": list(cat.stores), "товары": cat.rows}
+        tmp = LIVE_SNAPSHOT.with_name(LIVE_SNAPSHOT.name + ".tmp")
+        tmp.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, LIVE_SNAPSHOT)
+        _saved_at = cat.indexed_at
     log.warning("сохранён свежий снимок каталога: %d строк", len(cat.rows))
 
 
@@ -141,6 +153,7 @@ def onec_status():
 
 def reply(role, turns, context=()):
     if role == "manager":
+        turns = [TOPIC_RESET.sub("", turn, count=1) or turn for turn in turns]
         question = turns[-1]
         if health_question(question):
             return onec_status()
@@ -163,13 +176,13 @@ def reply(role, turns, context=()):
         if reader_config:
             answer = live_catalog(turns)
             if answer is not None:
-                return with_intro(question, answer, parse)
+                return answer
         cat, stamp = snapshot_catalog()
         answer = cat.archive_answer(turns, lambda m: parse(m[0]["content"], m[1]["content"]))
-        prefix = f"По выгрузке 1С на {stamp}. Здесь только архивные остатки, цен в выгрузке нет."
+        prefix = f"По выгрузке 1С на {stamp}. Остатки архивные. Актуальные цены не подтверждены."
         if reader_config:
             prefix = "Чат сейчас не получил ответ от читателя 1С. " + prefix
-        return with_intro(question, prefix + "\n\n" + answer.replace("\n", "  \n"), parse)
+        return prefix + "\n\n" + answer.replace("\n", "  \n")
     if role == "buyer":
         source, separator, _ = turns[-1].partition("\n")
         parts = source.split(":")

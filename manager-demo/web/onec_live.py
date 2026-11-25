@@ -1,6 +1,7 @@
 """Manager-only 1C connection. Credentials are private TLS files on the server."""
 import copy
 import json
+import logging
 import re
 import socket
 import threading
@@ -28,10 +29,18 @@ BUDGET = re.compile(
 STOCK_REQUEST = re.compile(r"\b(?:количеств\w*|остат\w*|наличи\w*|свободно|сколько|доступные размер\w*)\b")
 PRICE_REQUEST = re.compile(r"\b(?:цен[ауыеи]\w*|стоимост\w*|стоит|стоят|почем)\b")
 SITE_PRICE = re.compile(r"\b(?:на сайте|в интернет[- ]магазине|на витрине|hard-pro\.ru)\b")
+SITE_PRICE_ONLY = re.compile(r"\bтолько\s+цен\w*\b")
+IN_STOCK = re.compile(r"\b(?:в наличии|из наличия)\b")
+COUNT_STOCK = re.compile(r"\b(?:сколько|количеств\w*|остат\w*)\b")
+ANY_CITY_STOCK = re.compile(r"\b(?:есть|имеются)\b.*\b(?:симферопол\w*|севастопол\w*)\b")
+BOTH_IN_STOCK = re.compile(r"\b(?:в|на)\s+обоих\s+(?:магазин|склад)ах\b")
 DETAIL_REQUEST = re.compile(r"\b(?:описани\w*|материал\w*|состав|производител\w*|характеристик\w*|"
                             r"(?:какие|доступные) размер\w*)\b")
 GROUP_REFERENCE = re.compile(r"\b(?:этих|эти|их|все цвета|все варианты|кажд\w*)\b")
 ALL_STORES = re.compile(r"\b(?:обоих|обоим|оба|всех|все|двух|двум)\s+(?:склад\w*|магазин\w*)\b")
+MSK = timezone(timedelta(hours=3))
+KNOWLEDGE = Path.home() / ".local/share/hardpro/onec-pilot/catalog-knowledge.json"
+log = logging.getLogger("hardpro.catalog")
 
 
 def budget_value(query):
@@ -59,6 +68,8 @@ class OnecReader:
         self.lock = threading.Lock()
         self.index = None
         self.expires = 0
+        self.metadata = {}
+        self.metadata_stamp = ""
         self.host = config["host"]
         self.port = int(config["port"])
         self.ssh_relay = config.get("ssh_relay", False)
@@ -87,11 +98,42 @@ class OnecReader:
         finally:
             conn.close()
 
+    def warm_from_knowledge(self):
+        try:
+            knowledge = json.loads(KNOWLEDGE.read_text(encoding="utf-8"))
+            data = knowledge["catalog"]
+            stamp = datetime.strptime(data["момент"], "%d.%m.%Y %H:%M МСК").replace(tzinfo=MSK)
+            if knowledge["schema"] != 1 or set(data["склады"]) != self.stores.keys() or not data["товары"]:
+                raise ValueError("Несовместимая база каталога")
+            self.metadata = knowledge["metadata_by_code"]
+            self.metadata_stamp = data["момент"]
+            if timedelta(0) <= datetime.now(MSK) - stamp < timedelta(days=1):
+                self.index = LiveCatalog(data, self, indexed_at=stamp)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            log.info("Снимок базы каталога не загружен: %s", type(exc).__name__)
+
+    def refresh_index(self):
+        try:
+            refreshed = self.catalog()
+        except (OSError, ValueError, KeyError) as exc:
+            log.warning("Фоновое обновление индекса 1С отложено: %s", type(exc).__name__)
+            with self.lock:
+                self.expires = time.monotonic() + 60
+            return
+        with self.lock:
+            self.index = refreshed
+            self.expires = time.monotonic() + 300
+
     def session(self):
         with self.lock:
-            if self.index is None or time.monotonic() >= self.expires:
+            if self.index is None:
+                self.warm_from_knowledge()
+            if self.index is None:
                 self.index = self.catalog()
                 self.expires = time.monotonic() + 300
+            elif time.monotonic() >= self.expires:
+                self.expires = float("inf")
+                threading.Thread(target=self.refresh_index, daemon=True).start()
             session = copy.copy(self.index)
         session.criteria = session.criteria.copy()
         session.options = []
@@ -143,9 +185,11 @@ class OnecReader:
             by_store[uid] = on_hand - reserved
         return by_store
 
-    def offers(self, products):
+    def offers(self, products, *, require_prices=False):
         products = {str(UUID(uid)) for uid in products}
         payload = self.get("/v1/offers", products=",".join(sorted(products)))
+        if require_prices and payload["prices"] is None:
+            raise OSError("1С не подтвердила чтение регистра цен")
         stamp = read_stamp(payload["as_of"])
         stocks, prices = {}, {}
         for row in payload["balances"]:
@@ -178,10 +222,11 @@ class OnecReader:
 
 
 class LiveCatalog(ManagerCatalog):
-    def __init__(self, data, reader):
+    def __init__(self, data, reader, *, indexed_at=None):
         super().__init__(data)
         self.reader = reader
         self.selected = None
+        self.indexed_at = indexed_at or datetime.now(MSK)
 
     def show(self, idx, city):
         # История нужна для выбора варианта. Запрашиваем остатки только для последней реплики.
@@ -198,6 +243,9 @@ class LiveCatalog(ManagerCatalog):
             want_price = bool(PRICE_REQUEST.search(query))
             want_details = bool(DETAIL_REQUEST.search(query))
             site_price = want_price and SITE_PRICE.search(query)
+            only_available = bool((IN_STOCK.search(query) or ANY_CITY_STOCK.search(query))
+                                  and not COUNT_STOCK.search(query))
+            both_in_stock = bool(BOTH_IN_STOCK.search(query))
             previous = self.selected
             self.selected = None
             options = [key for kind, key in self.options if kind == "variant"]
@@ -218,20 +266,26 @@ class LiveCatalog(ManagerCatalog):
             if budget is None and self.criteria["product"] == previous_product:
                 budget = previous_budget
             previous_budget = budget
-            if budget is not None and (self.selected or (self.options and result == self.menu())):
+            if (budget is not None or only_available) and self.selected is None and self.options and result == self.menu():
                 _, matches = self.matching_rows(self.criteria["product"], self.criteria["variant"])
-                city = self.selected[1] if self.selected else self.criteria["warehouse"]
-                self.selected = (matches, city) if matches else self.selected
+                if matches:
+                    self.selected = (matches, self.criteria["warehouse"])
+        if site_price and (SITE_PRICE_ONLY.search(query) or not want_stock):
+            return "Цены сайта по этим вариантам пока недоступны."
         if self.selected is None:
             if self.options and result == self.menu():
-                return self.offer_menu()
+                answer = self.offer_menu(show_prices=not site_price)
+                if site_price:
+                    answer += "\n\nЦены сайта по этим вариантам пока недоступны."
+                return answer
             return result
         indices, city = self.selected
         stores = [city] if city else self.stores
         if budget is not None and site_price:
             return "Для отбора по бюджету доступны розничные цены 1С. Цены сайта по этим вариантам не подключены."
-        if budget is not None or (want_price and not site_price):
-            answer = self.price_and_stock(indices, stores, budget)
+        if budget is not None or only_available or (want_price and not site_price):
+            answer = self.price_and_stock(indices, stores, budget, only_available=only_available,
+                                          both_in_stock=both_in_stock, show_prices=not site_price)
         elif want_details and not want_stock:
             answer = ""
         elif want_stock or site_price:
@@ -244,11 +298,11 @@ class LiveCatalog(ManagerCatalog):
             answer = self.price_and_stock(indices, stores, None)
         if want_details:
             answer = "\n\n".join(filter(None, [self.details_text(indices), answer]))
-        if site_price:
+        if site_price and not only_available:
             answer += "\n\nЦены сайта по этим вариантам пока недоступны."
         return answer
 
-    def offer_menu(self):
+    def offer_menu(self, *, show_prices=True):
         visible = list(self.visible())
         products = list(dict.fromkeys(self.rows[indices[0]]["product"] for _, indices in visible))
         stamp, stocks, prices = self.reader.offers(products)
@@ -279,8 +333,9 @@ class LiveCatalog(ManagerCatalog):
                 else:
                     detail = "нет данных"
                 amounts.append(f"{display(name)} — {detail}")
-            lines.append(f"№{number} {display(row['товар'])} · {self.variant_summary(indices)} · "
-                         f"{price}. {'; '.join(amounts)}.")
+            price_label = f" · {price}" if show_prices else ""
+            lines.append(f"№{number} {display(row['товар'])} · {self.variant_summary(indices)}{price_label}. "
+                         f"{'; '.join(amounts).rstrip('.')}.")
         return "\n".join([*lines, self.menu_hint()])
 
     def stock_text(self, idx, stores):
@@ -301,14 +356,14 @@ class LiveCatalog(ManagerCatalog):
                 lines.append(f"{name} — свободно {amounts[uid]:f}.")
         return "\n".join(lines)
 
-    def price_and_stock(self, indices, stores, budget):
+    def price_and_stock(self, indices, stores, budget, *, only_available=False, both_in_stock=False, show_prices=True):
         by_product = {}
         for idx in indices:
             by_product.setdefault(self.rows[idx]["product"], []).append(idx)
         products = list(by_product)
         if len(products) > 72:
             return "Уточните категорию, марку или размер, чтобы проверить цены и остатки."
-        if budget is None and len(indices) > 24:
+        if budget is None and not only_available and len(indices) > 24 and len(products) > 1:
             return "Уточните модель, размер или цвет. Можно запросить цены для 24 вариантов."
         selected = []
         lacks_price = False
@@ -328,24 +383,37 @@ class LiveCatalog(ManagerCatalog):
                     price, amounts = prices.get(key), stocks.get(key, {})
                     lacks_price |= price is None
                     has_price |= price is not None
-                    if budget is None or (price is not None and price <= budget
-                                           and all(amounts.get(self.reader.stores[name], 0) > 0 for name in stores)):
-                        selected.append((price, idx, amounts, stamp))
+                    if budget is not None and (price is None or price > budget):
+                        continue
+                    if budget is not None or only_available:
+                        positives = [amounts.get(self.reader.stores[name], 0) > 0 for name in stores]
+                        if not (all(positives) if both_in_stock else any(positives)):
+                            continue
+                    selected.append((price, idx, amounts, stamp))
         if not selected:
+            if budget is None:
+                return f"По рабочей 1С нет подтверждённых свободных остатков: {', '.join(stores)}."
             if not has_price:
                 return "Для найденных вариантов розничные цены 1С не подтверждены. Подбор по бюджету недоступен."
             answer = f"В 1С нет подтверждённых вариантов до {price_text(budget)} в наличии: {', '.join(stores)}."
             if lacks_price:
                 answer += " Часть вариантов без подтверждённой розничной цены."
             return answer
-        selected.sort(key=lambda item: (item[0] is None, item[0] or 0, self.rows[item[1]]["товар"], item[1]))
-        lines = [f"По рабочей 1С. Вариантов: {len(selected)}." + (" Первые 20 по цене." if len(selected) > 20 else "")]
+        selected.sort(key=lambda item: (
+            not any(item[2].get(self.reader.stores[name], 0) > 0 for name in stores),
+            item[0] is None, item[0] or 0, self.rows[item[1]]["товар"], item[1],
+        ))
+        lines = [f"По рабочей 1С. Вариантов: {len(selected)}." +
+                 (" Показаны первые 20, начиная с подтверждённых остатков." if len(selected) > 20 else "")]
         for price, idx, amounts, stamp in selected[:20]:
             info = self.variant_text(idx, stores, amounts)
             amount = price_text(price) if price is not None else "не подтверждена"
-            lines.append(f"{info}\nРозничная цена 1С — {amount}. Проверено в {stamp:%H:%M:%S} МСК.")
+            price_line = f"Розничная цена 1С — {amount}. " if show_prices else ""
+            lines.append(f"{info}\n{price_line}Проверено в {stamp:%H:%M:%S} МСК.")
         if budget is not None and lacks_price:
             lines.append("Варианты без подтверждённой розничной цены не включены.")
+        if not show_prices:
+            lines.append("Цены сайта по этим вариантам пока недоступны.")
         return "\n\n".join(lines)
 
     def details_text(self, indices):
@@ -361,8 +429,11 @@ class LiveCatalog(ManagerCatalog):
         try:
             details = self.reader.details(row)
         except OSError:
-            lines.append("Описание товара из 1С сейчас недоступно.")
-            return "\n".join(lines)
+            details = getattr(self.reader, "metadata", {}).get(row["код"])
+            if not details or details["title"] != row["товар"]:
+                lines.append("Описание товара из 1С сейчас недоступно.")
+                return "\n".join(lines)
+            lines.append(f"Карточка по снимку 1С на {self.reader.metadata_stamp}.")
         if details:
             for key, label in (("full_name", "Полное наименование"), ("manufacturer", "Производитель"),
                                ("kind", "Вид номенклатуры"),

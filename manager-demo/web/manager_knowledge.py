@@ -91,7 +91,9 @@ def expand_terms(question):
     if clarification:
         return query
     pattern, aliases = glossary()
-    return pattern.sub(lambda match: aliases[match[0]], query)
+    query = pattern.sub(lambda match: aliases[match[0]], query)
+    # Keep the catalogue's numbered reference after NFKC converts № into "No".
+    return re.sub(r"(?<!\w)no\s*(?=\d)", "№", query) if "№" in question else query
 
 
 def definition_answer(question):
@@ -100,6 +102,8 @@ def definition_answer(question):
     if not request:
         return None
     subject = query[request.end():].strip(" \t?!.«»\"")
+    if re.match(r"^oz\s+(?:на|у|в)\s+.*перчатк", subject):
+        subject = "oz"
     if not subject:
         return None
     data = terminology()

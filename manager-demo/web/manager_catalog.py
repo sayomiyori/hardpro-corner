@@ -3,10 +3,27 @@ import json
 import re
 from decimal import Decimal, InvalidOperation
 
-from archive_catalog import Catalog, words
+from archive_catalog import SIZES, Catalog, words
 
 CAPA = re.compile(r"\b(?:кап(?:а|ы|у|е|ой|ою|ам|ами|ах)?|защит[ау]\s+(?:для\s+)?зубов)\b", re.I)
 BOYBO = re.compile(r"\b(?:boy[ -]?bo|бой[ -]?бо)\b", re.I)
+OXXFIRE_SOCKS = re.compile(r"(?=.*\boxxfire\b)(?=.*\bноск\w*\b)", re.I)
+VENUM_RASHGUARDS = re.compile(r"(?=.*\bvenum\b)(?=.*\bрашгард\w*\b)(?!.*\bкомплект\w*\b).+", re.I)
+TOPIC_RESET = re.compile(r"^\s*забудь(?:те)? про (?:эти|эту|этот) "
+                         r"(?:перчатки|капу|капы|товар|модель|экипировку|носки)\s*[.!]\s*", re.I)
+POSITION = re.compile(r"\b(?:позици\w*|строк\w*|вариант\w*)\s*,?\s*(?:[№#]\s*)?(\d{1,3})\b|"
+                      r"(?<!\w)[№#]\s*(\d{1,3})\b", re.I)
+PRODUCT_POSITION = re.compile(r"\b(?:позици\w*|строк\w*)\b", re.I)
+CITY_ONLY = re.compile(r"^(?:а\s+)?(?:только\s+)?(?:в|по)\s+(симферопол\w*|севастопол\w*)[\s.!?]*$", re.I)
+CITY_NAMES = re.compile(r"\b(симферопол\w*|севастопол\w*)\b", re.I)
+WEIGHT_ONLY = re.compile(r"^(?:а\s+)?(?:если\s+)?(?:вес\s+)?(\d{1,2}\s*(?:oz|унци\w*))"
+                         r"(?:[, ]+все остальное как раньше)?[\s.!?]*$", re.I)
+
+
+def catalog_followup(question):
+    phrase = question.casefold().replace("ё", "е")
+    return (bool(POSITION.search(phrase)) and not re.search(r"\bзаказ\w*\b", phrase)
+            or bool(CITY_ONLY.fullmatch(phrase) or WEIGHT_ONLY.fullmatch(phrase)))
 
 
 def search_terms(text):
@@ -26,16 +43,48 @@ def units(value):
 
 
 class ManagerCatalog(Catalog):
+    def __init__(self, data):
+        super().__init__(data)
+        self.product_menu = None
+
     def reply(self, question, parse):
+        phrase = question.casefold().replace("ё", "е")
+        city = CITY_NAMES.search(phrase)
+        warehouse = next((store for store in self.stores
+                          if city and store.casefold().startswith(city[1][:9])), None)
+        if catalog_followup(phrase):
+            if position := POSITION.search(phrase):
+                if self.product_menu and PRODUCT_POSITION.search(phrase):
+                    options, criteria = self.product_menu
+                    self.options, self.criteria = options, criteria.copy()
+                if warehouse:
+                    self.criteria["warehouse"] = warehouse
+                return super().reply("№" + (position[1] or position[2]), parse)
+            if self.criteria["product"]:
+                if warehouse:
+                    return self.search({**self.criteria, "warehouse": warehouse})
+                if weight := WEIGHT_ONLY.fullmatch(phrase):
+                    variant = self.criteria["variant"]
+                    if re.fullmatch(r"[0-9a-f-]{36}", variant):
+                        variant = next((row["вариант"] for row in self.rows if row["id"] == variant), "")
+                    return self.search({**self.criteria, "variant": f"{SIZES.sub(' ', variant)} {weight[1]}".strip()})
+
         def keep_explicit_terms(messages):
             raw = parse(messages)
-            if not (CAPA.search(question) or BOYBO.search(question)):
+            socks = OXXFIRE_SOCKS.search(question)
+            rashguards = VENUM_RASHGUARDS.fullmatch(question)
+            if not (CAPA.search(question) or BOYBO.search(question) or socks or rashguards):
                 return raw
             try:
                 parsed = json.loads(raw)
                 if not isinstance(parsed, dict) or not isinstance(parsed.get("product"), str):
                     return raw
                 product = search_terms(parsed["product"])
+                if socks:
+                    product = "носки OxxFire"
+                if rashguards:
+                    product = "рашгарды Venum"
+                    parsed["variant"] = ""
                 if CAPA.search(question) and "капа" not in words(product):
                     # Модель может оставить только бренд или вернуть предыдущую категорию.
                     # Оставляем термины, которые действительно названы в текущем вопросе.
@@ -51,7 +100,12 @@ class ManagerCatalog(Catalog):
         return super().reply(question, keep_explicit_terms)
 
     def matching_rows(self, product, variant):
-        return super().matching_rows(search_terms(product), variant)
+        codes, matches = super().matching_rows(search_terms(product), variant)
+        if product == "рашгарды Venum":
+            codes = [code for code in codes if "комплект" not in words(self.products[code]["товар"])]
+            allowed = set(codes)
+            matches = [i for i in matches if self.rows[i]["код"] in allowed]
+        return codes, matches
 
     def label(self, idx):
         label = self.rows[idx]["вариант"]
@@ -80,6 +134,8 @@ class ManagerCatalog(Catalog):
 
     def search(self, criteria):
         result = super().search(criteria)
+        if self.options and self.options[0][0] == "product":
+            self.product_menu = (self.options, self.criteria.copy())
         return (result.replace(" в выгрузке", " в каталоге")
                 .replace(", марку или артикул", " или марку")
                 .replace("название, артикул или код из 1С", "название или марку")

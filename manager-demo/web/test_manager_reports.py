@@ -31,6 +31,8 @@ class ManagerReportsTest(unittest.TestCase):
     def test_filtered_future_and_prompt_control_never_open_reader(self):
         provider = Mock()
         self.assertIn("общие продажи", reply("Продажи шорт", infer("filter"), provider, TODAY))
+        self.assertIn("по конкретному товару", reply("Сколько было продаж именно кап BoyBo 24 ноября 2026?",
+                         infer("sales", start="2026-11-24", end="2026-11-24"), provider, TODAY))
         self.assertIn("Укажи период", reply("Закупки в декабре", infer(
             "purchases", start="2026-12-01", end="2026-12-10"), provider, TODAY))
         forced = infer("order", number="0000123")
