@@ -3,6 +3,9 @@ import re
 import unicodedata
 
 from archive_catalog import COLORS, SIZES, words
+from manager_catalog import OZ_SHORT, POSITION
+from manager_knowledge import OZ_RANGE, OZ_SIZE, expand_terms, resolve_context
+from shop_knowledge import data, expand_shop_terms, policy_answer, scope_answer
 from site_catalog import STORES
 
 HANDOFF = "/shop?legal=seller"
@@ -27,6 +30,15 @@ CONTACT = re.compile(r"\b(?:контакт\w*|адрес\w*|телефон\w*|п
 HISTORY = re.compile(r"истори\w*\s+цен|динамик\w*\s+цен|цен\w*\s+(?:раньше|была|менялась)|(?:была|менялась|измен\w*)\s+цен|(?:подешевел|подорожал)\w*")
 KIT = re.compile(r"\b(?:комплект\w*|набор\w*|экипировк\w*|одежд\w*)\b")
 ITEMS = {
+    "Снарядные перчатки": r"снаряд\w*\s+перчат\w*|перчат\w*\s+снаряд\w*",
+    "Тайские носки": r"тайск\w*\s+носк\w*|носк\w*\s+(?:для\s+)?(?:муай|тайск)|голеностопник\w*",
+    "Тайские лапы": r"тайск\w*\s+(?:лап\w*|п[эа]д\w*)|лап\w*\s+для\s+муай",
+    "Груша на растяжках": r"груш\w*\s+на\s+(?:растяжк\w*|резинк\w*)",
+    "Боксёрки": r"\bбоксерк\w*|\bобувь\s+для\s+бокса",
+    "Ботинки самбо": r"\b(?:ботин\w*|обув\w*)\s+(?:для\s+)?самбо",
+    "Кимоно для дзюдо": r"кимоно\s+для\s+дзюдо|дзюдог\w*",
+    "Компрессионные штаны": r"компрессион\w*\s+штан\w*|\bтайтс\w*",
+    "Тайские шорты": r"шорт\w*\s+для\s+тайск\w*\s+бокса|тайск\w*\s+шорт\w*",
     "Перчатки": r"\bперчат\w*",
     "Бинты": r"\bбинт\w*",
     "Капа": r"\bкап(?:а|ы|у|е|ой|ою|ам|ами|ах)?\b",
@@ -51,6 +63,30 @@ FILLER = words("слушай есть какие какой можно купи�
                "склад товар цену цена цены цен стоимость стоит размер вес цвет черный белый синий красный "
                "доступно севастополь симферополь севастополе симферополе руб рублей раньше история динамика "
                "менялась изменилась была изменение была подешевел подорожал еще данный а это него нее")
+FILLER |= words("которые которых нужен именно проверь актуальная актуальное текущую сейчас назови узнаю список "
+                "название модель бренда фирма для бокса боксерские тайбокс спортивные говорю пожалуйста "
+                "дешевле продажа продаете продаже продадите только тоже же цветной остались осталось "
+                "вот тогда таких такие такиеже те тех тем эти эту этом эту этих того том тот самом еще "
+                "так так же всё все остальное как раньше вернемся вернёмся новое если теперь и размером "
+                "весом наличии свободно свободный остаток остатки остатка цены сколько штук там город другой "
+                "магазине склад складе стоит стоят почем в наличии подходящие номера номерами "
+                "номер пожалуйста плиз которые именно того этого варианта их к выйдет обе списком")
+CONTAINS_ARTICLE = re.compile(r"(?<![\w-])[a-zа-я0-9]+(?:-[a-zа-я0-9]+)+(?![\w-])", re.I)
+BUDGET = re.compile(r"\b(?:не дороже|до|бюджет(?:ом)?)\s*(\d+(?:[ \u00a0]\d{3})*)\s*"
+                    r"(тыс\w*|к\b)?\s*(?:₽|руб\w*)?(?!\d|\s*(?:oz|унц|см|кг)\b)")
+QUANTITY = re.compile(r"\b(\d{1,3}|одну|две|два|три|четыре|пять)\s+(?:штук\w*|шт\.?|пар\w*)\b")
+STOREFRONT_INTENT = re.compile(r"\b(?:ищу|найди\w*|покажи\w*|подбер\w*|прода[её]\w*|"
+                               r"магазин\w*|ассортимент\w*|достав\w*|в наличии|цена|стоит|стоимость|сколько стоят)\b")
+STORE_LOCATION = re.compile(r"\b(?:офлайн[- ]магазин\w*|где вход|открыт\w*|выходно\w*|воскресень\w*)\b")
+PUBLIC_HOTLINE = re.compile(r"\b(?:бесплатн\w* номер\w*|общ\w* номер\w*)\b")
+NEGATIVE_ITEM = re.compile(r"\s+(?:не\s+(?!дороже\b|более\b|дешевле\b|менее\b)|без\s+)")
+PART_OF_STORE = re.compile(r"\b(?:севастопол\w*|симферопол\w*)\b")
+EXACT_ATTRIBUTES = re.compile(r"\b(?:размер\w*|рост(?:ом|а)?)\s+(\d+(?:[.,]\d+)?)\b")
+SAMBO_SHOES = re.compile(r"\bсамбовк\w*[^?]*?\bтолько\s+(?:обувь|ботинки)\b")
+LONG_SLEEVE = re.compile(r"\bдлинн\w*\s+рукав\w*\b")
+SHIN_SLEEVE = re.compile(r"\bчул(?:ок|к\w*)\b")
+COLOR_EXCEPTIONS = {"син": "синий", "голуб": "голубой", "золот": "золотой"}
+MISSING = "В опубликованном каталоге пока не нашёл таких товаров."
 
 
 def normalize(text):
@@ -87,6 +123,20 @@ def city_in(phrase):
     return selected[0] if len(selected)==1 else None
 
 
+def budget_limit(phrase):
+    match = BUDGET.search(phrase)
+    return int(re.sub(r"\s", "", match[1])) * (100_000 if match[2] else 100) if match else None
+
+
+def attributes(text):
+    sizes = [m[0] for m in SIZES.finditer(OZ_SIZE.sub(" ", text))]
+    sizes.extend(EXACT_ATTRIBUTES.findall(text))
+    colors = [COLOR_EXCEPTIONS.get(stem, stem + "ый") for stem in COLORS.findall(text)]
+    return {kind: " ".join(values) for kind, values in {
+        "color": colors, "weight": OZ_SIZE.findall(text), "size": sizes,
+    }.items() if values}
+
+
 class ShopDialog:
     def __init__(self, catalog, history=None):
         self.cat = catalog
@@ -95,24 +145,45 @@ class ShopDialog:
         self.options = []
         self.page = 0
         self.city = None
-        self.attrs = set()
+        self.filters = {}
         self.compare = False
+        self.budget = None
         self.pending_kit = ""
 
-    def stores(self, city):
+    @property
+    def attrs(self):
+        return words(" ".join(self.filters.values()), variant=True)
+
+    def stores(self, city, *, hotline=False, fallback_city=False):
+        headline = []
+        links = []
+        if hotline:
+            phone = data()["store"]["hotline"]
+            headline.append("Общий бесплатный номер по России — 8 800 350-54-14.")
+            links.append({"label":"Общий телефон HARD-PRO","href":"tel:" + phone})
+        if fallback_city:
+            headline.append("Офлайн-магазины HARD-PRO есть только в Севастополе и Симферополе. Для других городов доставку согласует менеджер.")
+        if hotline and not city and not fallback_city:
+            return " ".join(headline), links
         rows = [c for c in self.cat.contacts if not city or city==c["city"]]
         if not rows:
             return "Адреса и телефоны опубликованы на странице контактов.", [{"label":"Контакты магазинов","href":HANDOFF}]
-        links = []
         for row in rows:
             links.extend((
                 {"label":f'{row["city"]} · адрес', "href":HANDOFF + "#" + row["key"]},
                 {"label":f'Позвонить {row["phone"]}', "href":"tel:" + row["phone"]},
             ))
-        return "\n".join(f'{c["address"]}. {c["hours"]}. Телефон {c["phone"]}.' for c in rows), links
+        details = data()["store"].get("entrances", {})
+        return "\n".join(headline + [
+            " ".join(part for part in (f'{c["address"]}.', details.get(c["city"], ""),
+                                       f'{c["hours"]}. Телефон {c["phone"]}.') if part)
+            for c in rows
+        ]), links
 
     def equipment(self, phrase):
-        explicit = tuple(name for name, pattern in ITEMS.items() if re.search(pattern, phrase))
+        explicit = tuple(name for name in ("Перчатки","Бинты","Капа","Шлем","Защита голени","Шорты",
+                                           "Рашгард","Кимоно","Пояс","Футболка","Легинсы")
+                         if re.search(ITEMS[name], phrase))
         sport = next((sport for sport in SPORTS if re.search(sport[0], phrase)), None)
         slots = explicit if len(explicit)>1 else (sport[2] if sport else ())
         if "одежд" in phrase and len(explicit)<2:
@@ -164,25 +235,34 @@ class ShopDialog:
             lines.append(f'{slot} · {row["товар"]}{variant} · {price if exact else "от "+price}')
         total = sum(row["price_cents"] for _,row,_ in ranked)
         lines.append(f"Сумма найденных позиций от {rub(total)}. Цена зависит от варианта.")
-        budget = re.search(r"(?:до|бюджет(?:ом)?)\s*(\d(?:[\d ]{0,8}\d)?)\s*(тыс\.?|к\b)?",phrase)
-        if budget:
-            amount = int(budget[1].replace(" ","")) * (1000 if budget[2] else 1)
-            if total>amount*100:
+        budget = budget_limit(phrase)
+        if budget is not None:
+            if total>budget:
                 lines.append("Эта подборка выше указанного бюджета.")
+            elif missing:
+                lines.append(f"В бюджете остаётся {rub(budget-total)} на недостающие позиции.")
         if missing:
             lines.append("Не нашёл: " + ", ".join(missing) + ".")
+            lines.append("Полный комплект сейчас недоступен. Наличие недостающих позиций можно уточнить у магазина.")
         return "\n".join(lines), [link(row,exact) for _,row,exact in ranked]
+
+    def active_variant(self, idx):
+        row = self.cat.rows[idx]
+        return (self.attrs <= self.cat.variant_words[idx]
+                and (self.budget is None or 0 < row["price_cents"] <= self.budget))
 
     def menu(self):
         part = self.options[self.page:self.page+8]
-        title = "Уточните модель или вариант. Можно написать номер строки, размер или цвет."
+        title = f"Нашёл варианты. {self.city}. Выберите номер строки для подробностей." if self.city else (
+            "Нашёл варианты. Выберите номер строки или уточните размер и цвет."
+        )
         lines, links = [title], []
         for number, (exact, row) in enumerate(part,self.page+1):
             label = row["товар"] + (" · " + row["вариант"] if exact and row["id"] else "")
             links.append({**link(row,exact),"label":f"№{number} {label}"})
             variants = ([row] if exact else
                         [self.cat.rows[i] for i in self.cat.by_product[row["код"]]
-                         if self.attrs <= self.cat.variant_words[i]])
+                         if self.active_variant(i)])
             active = [variant for variant in variants if variant["id"]]
             if not active:
                 lines.append(f"№{number} {label} · нет активных вариантов")
@@ -196,15 +276,15 @@ class ShopDialog:
                 price = "цена не указана"
             stock = "; ".join(f"{city} — {sum(variant['склады'][city] for variant in active)} шт."
                               for city in ([self.city] if self.city else STORES))
-            lines.append(f"№{number} {label} · {price}. {stock}.")
+            lines.append(f"№{number} {label} · {price}. {stock.rstrip('.')}.")
         if len(self.options)>8:
             lines.append(f"Показано {self.page+1}–{self.page+len(part)} из {len(self.options)}. Напишите «ещё» для продолжения.")
         return "\n".join(lines), links
 
-    def show(self, row):
+    def show(self, row, quantity=None):
         self.options = []
         self.selected = [row["код"]]
-        self.attrs = words(row["вариант"],variant=True) if row["id"] else set()
+        self.filters = attributes(normalize(row["вариант"])) if row["id"] else {}
         if not row["id"]:
             return f'{row["товар"]}. У карточки пока нет активных вариантов для покупки.', [link(row)]
         lines = [f'{row["товар"]} · {row["вариант"]}']
@@ -214,6 +294,12 @@ class ShopDialog:
                 lines.append("На карточке зачёркнута цена " + rub(row["old_price_cents"]) + ".")
         for city in [self.city] if self.city else STORES:
             lines.append(f'{city} — доступно {row["склады"][city]} шт.')
+        if quantity:
+            available = row["склады"][self.city] if self.city else max(row["склады"].values())
+            if available < quantity:
+                lines.append(f"Для покупки {quantity} шт. в одном магазине не хватает остатка по этому варианту.")
+            elif row["price_cents"]:
+                lines.append(f"За {quantity} шт. — {rub(row['price_cents']*quantity)} по текущей цене.")
         if self.compare:
             points = self.history.recent(row["id"], row["код"][1:]) if self.history else []
             if points:
@@ -229,34 +315,61 @@ class ShopDialog:
                 lines.append("Пока нет подтверждённой истории по этому варианту.")
         return "\n".join(lines), [link(row, True)]
 
-    def choose(self, codes):
+    def choose(self, codes, quantity=None):
         indices = [i for code in codes for i in self.cat.by_product[code]]
-        rows = [self.cat.rows[i] for i in indices if self.attrs<=self.cat.variant_words[i]]
+        rows = [self.cat.rows[i] for i in indices if self.active_variant(i)]
         if not rows:
             self.options = []
-            return "Такой размер или цвет не найден для этой модели. Уточните вариант.", []
+            self.selected = codes
+            if self.budget is not None:
+                return f"Для выбранных товаров нет опубликованных вариантов до {rub(self.budget)}.", []
+            if len(codes) == 1:
+                product = self.cat.products[codes[0]]
+                variants = dict.fromkeys(self.cat.rows[i]["вариант"] for i in indices if self.cat.rows[i]["id"])
+                choices = ", ".join(list(variants)[:8])
+                params = ", ".join(self.filters.values())
+                detail = f'Запрошенный вариант ({params}) не найден.' if params else "Подходящий вариант не найден."
+                text = f'{product["товар"]}. {detail}'
+                if self.city:
+                    text += f" Магазин — {self.city}."
+                if choices:
+                    text += f" Варианты на сайте — {choices}."
+                return text, [link(product)]
+            return "Для выбранных моделей такой размер или цвет не найден.", []
         self.selected = list(dict.fromkeys(row["код"] for row in rows))
         if len(rows)==1:
-            return self.show(rows[0])
-        self.options = ([(False,self.cat.products[code]) for code in self.selected] if len(self.selected)>1
-                        else [(True,row) for row in rows])
+            return self.show(rows[0], quantity)
+        if len(self.selected)>1 and len(rows)>len(self.selected):
+            self.options = [(False,self.cat.products[code]) for code in self.selected]
+        else:
+            self.options = [(True,row) for row in rows]
         self.page = 0
         return self.menu()
 
     def answer(self, turns):
         result = (HELP, [])
         for question in turns:
-            if not blocked(question):
-                result = self.turn(normalize(question))
+            restricted = scope_answer(normalize(question)) or blocked(question)
+            if restricted:
+                result = restricted
+                continue
+            question = SAMBO_SHOES.sub("ботинки самбо", question.casefold())
+            question = expand_shop_terms(question)
+            _, clarification = resolve_context(question)
+            result = (clarification, []) if clarification else self.turn(expand_terms(question).casefold())
         return result
 
     def turn(self, phrase):
-        if CONTACT.search(phrase):
-            return self.stores(city_in(phrase))
-        if re.search(r"\b(?:возврат\w*|вернуть|обменять)\b", phrase):
-            return "Условия обмена и возврата есть на сайте.", [{"label":"Обмен и возврат","href":"/shop?legal=returns"}]
-        if re.search(r"\b(?:доставк\w*|оплат\w*)\b", phrase):
-            return "Условия доставки и оплаты зависят от способа получения. Подробности на сайте.", [{"label":"Доставка и оплата","href":"/shop?legal=offer"}]
+        city = city_in(phrase)
+        if policy := policy_answer(phrase):
+            if city and re.search(r"\b(?:самовывоз\w*|забрать\w*)\b", phrase) and not re.search(r"\bналичн\w*\b", phrase):
+                contacts, links = self.stores(city)
+                return policy[0] + "\n" + contacts, links
+            return policy
+        if CONTACT.search(phrase) or STORE_LOCATION.search(phrase) or PUBLIC_HOTLINE.search(phrase):
+            both = bool(re.search(r"\b(?:оба|обоих|всех)\s+магазин\w*\b", phrase))
+            return self.stores(city, hotline=bool(PUBLIC_HOTLINE.search(phrase)),
+                               fallback_city=both or bool(not city and STORE_LOCATION.search(phrase)))
         if re.fullmatch(r"(?:привет|здравствуйте|добрый (?:день|вечер)|что ты умеешь)[.!?]*", phrase):
             return HELP, []
         if re.search(r"сколько (?:всего )?(?:товаров|карточек|моделей|вариантов)(?: всего)? (?:на сайте|в каталоге|в магазине)", phrase):
@@ -264,52 +377,81 @@ class ShopDialog:
         if self.options and phrase.rstrip(".!?") in {"еще","дальше"}:
             self.page = self.page+8 if self.page+8<len(self.options) else 0
             return self.menu()
-        chosen = re.fullmatch(r"(?:№|#|номер\s+|вариант\s+)(\s*[0-9]{1,5})[.!?]?",phrase)
+        chosen = POSITION.search(phrase) or re.fullmatch(r"(номер\s+)([0-9]{1,5})[.!?]?", phrase)
         if chosen:
-            n = int(chosen[1])
+            n = int(chosen[1] if chosen[1] and chosen[1].isdigit() else chosen[2])
             if not 1<=n<=len(self.options):
                 return "Укажите номер из последней подборки.", []
             exact, row = self.options[n-1]
             return self.show(row) if exact else self.choose([row["код"]])
-        city = city_in(phrase)
         kit = KIT.search(phrase) and (re.search(r"соб[еир]|подбер|подоб|нуж|куп|комплект|набор", phrase)
                                      or any(re.search(rule[0],phrase) for rule in SPORTS))
         if kit or self.pending_kit and (city or any(re.search(rule[0],phrase) for rule in SPORTS)):
             self.city = city or self.city
             return self.equipment((self.pending_kit + " " + phrase).strip())
-        anchors = [m[0] for m in COLORS.finditer(phrase)] + [m[0] for m in SIZES.finditer(phrase)]
-        anchors += re.findall(r"\b(?:размер\w*|рост(?:ом|а)?)\s+(\d+(?:[.,]\d+)?)",phrase)
-        term_phrase = COLORS.sub(" ", SIZES.sub(" ", phrase))
-        categories = [re.compile(pattern) for pattern in ITEMS.values() if re.search(pattern,phrase)]
+        query = NEGATIVE_ITEM.split(phrase, 1)[0]
+        if self.selected and any(re.search(ITEMS["Перчатки"], normalize(self.cat.products[code]["товар"]))
+                                 for code in self.selected):
+            query = OZ_SHORT.sub(r"\1 oz", query)
+        anchors = attributes(query)
+        if OZ_RANGE.search(query) or len(OZ_SIZE.findall(query)) > 1:
+            return "Какой вес перчаток проверить первым? Укажите один вариант в унциях.", []
+        quantity_match = QUANTITY.search(query)
+        quantity = None
+        if quantity_match:
+            label = quantity_match[1]
+            quantity = int(label) if label.isdigit() else {"одну":1,"две":2,"два":2,"три":3,"четыре":4,"пять":5}[label]
+        budget = budget_limit(query)
+        term_phrase = PART_OF_STORE.sub(" ", EXACT_ATTRIBUTES.sub(" ", QUANTITY.sub(" ", BUDGET.sub(" ", query))))
+        term_phrase = COLORS.sub(" ", SIZES.sub(" ", term_phrase))
+        categories = [re.compile(pattern) for pattern in ITEMS.values() if re.search(pattern, query)]
+        if LONG_SLEEVE.search(query):
+            categories.append(LONG_SLEEVE)
+        if re.search(ITEMS["Защита голени"], query) and SHIN_SLEEVE.search(query):
+            categories.append(SHIN_SLEEVE)
         for pattern in categories:
             term_phrase = pattern.sub(" ", term_phrase)
+
         def same_category(row):
             return all(pattern.search(normalize(row["товар"])) for pattern in categories)
 
-        direct = list(dict.fromkeys(code for token in re.findall(r"[\w-]{3,64}",phrase)
+        direct = list(dict.fromkeys(code for token in re.findall(r"[\w-]{3,64}",term_phrase)
                                     for code in self.cat.articles.get(token,())
                                     if same_category(self.cat.products[code])))
-        terms = words(term_phrase) - FILLER - words(" ".join(anchors),variant=True)
-        common = terms & self.cat.vocabulary
-        # A size-only follow-up must not become a new product search.
-        if self.selected and not common and (anchors or city):
-            direct = []
-        codes = direct or ([code for code,tokens in self.cat.product_words.items()
-                            if common <= tokens and same_category(self.cat.products[code])]
-                           if common or categories else [])
-        compare = bool(HISTORY.search(phrase))
+        model_anchors = {m[0] for m in CONTAINS_ARTICLE.finditer(term_phrase) if any(c.isdigit() for c in m[0])}
+        terms = words(term_phrase) - FILLER
+        if terms & self.cat.vocabulary and categories:
+            terms -= words("модели для начальных тренировок размеру материал подешевле")
+        compare = bool(HISTORY.search(query))
         all_cities = all(name.casefold().rstrip("ь") in phrase for name in STORES) or bool(re.search(r"\b(?:оба|обоих|всех|другом)\s+(?:город\w*|магазин\w*|склад\w*)", phrase))
-        if codes:
-            self.attrs = words(" ".join(anchors),variant=True)
-            self.city = city
-            self.compare = compare
-        elif self.selected and (anchors or city or all_cities or compare) and not common and not categories:
-            codes = self.selected
-            if anchors:
-                self.attrs = words(" ".join(anchors),variant=True)
+        previous = [code for code in self.selected if same_category(self.cat.products[code])]
+        if not terms and previous and (anchors or city or all_cities or compare or quantity or budget):
+            self.filters.update(anchors)
             if city or all_cities:
                 self.city = city
+            if budget is not None:
+                self.budget = budget
             self.compare = self.compare or compare
-        else:
-            return ("В опубликованном каталоге пока не нашёл таких товаров.", []) if categories else (HELP, [])
-        return self.choose(codes)
+            return self.choose(previous, quantity)
+        if not (terms or categories):
+            return HELP, []
+        codes = direct or [code for code,tokens in self.cat.product_words.items()
+                           if terms <= tokens and same_category(self.cat.products[code])
+                           and all(
+                               anchor in CONTAINS_ARTICLE.findall(normalize(self.cat.products[code]["товар"]))
+                               or anchor == normalize(self.cat.products[code]["артикул"])
+                               for anchor in model_anchors)]
+        if not codes:
+            if not categories and not model_anchors and not terms & self.cat.vocabulary and not STOREFRONT_INTENT.search(query):
+                return HELP, []
+            self.selected = []
+            self.options = []
+            if categories:
+                kind = next((name for name, regex in ITEMS.items() if re.search(regex,query)), "")
+                return f"{MISSING} Категория — {kind.casefold()}.", []
+            return MISSING, []
+        self.filters = anchors
+        self.city = city
+        self.budget = budget
+        self.compare = compare
+        return self.choose(codes, quantity)

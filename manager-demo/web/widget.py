@@ -18,8 +18,9 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 ROOT = Path.home() / ".local/share/hardpro"
 sys.path.append(str(ROOT / "onec-pilot/full-release"))
 from price_history import PriceHistory
-from assistant_dialog import catalog_turns, decision, health_question, model_json, with_intro
-from shop_dialog import HELP, ShopDialog, blocked
+from assistant_dialog import decision, health_question, model_json
+from shop_dialog import HELP, ShopDialog, blocked, normalize
+from shop_knowledge import equipment_answer, scope_answer
 from site_catalog import store_from_data
 
 FEED = "http://127.0.0.1:18865/internal/catalog-assistant"
@@ -60,26 +61,26 @@ def current_store():
 
 
 def answer(turns, snapshot):
-    refusal = blocked(turns[-1])
+    question = turns[-1]
+    refusal = scope_answer(normalize(question)) or blocked(question)
     if refusal:
         message,links = refusal
         return {"answer":message,"links":links,"discard_turn":True}
-    question = turns[-1]
     if health_question(question):
         return {"answer":"Я помогу проверить товары, цены и наличие по каталогу магазина.",
                 "links": [], "discard_turn": False}
-    turns = [q for q in turns[:-1] if not blocked(q)] + [question]
-    # Known shop and catalogue requests still use the published feed. General conversation
-    # goes straight to the local model and receives no private catalogue data.
-    action, message = decision(turns, model_json, buyer=True)
-    if action == "chat":
+    if message := equipment_answer(question):
         return {"answer":message,"links":[],"discard_turn":False}
-    turns = catalog_turns(turns, model_json, buyer=True) if action == "followup" else turns[-1:]
+    turns = [q for q in turns[:-1] if not blocked(q) and not scope_answer(normalize(q))
+             and not equipment_answer(q)] + [question]
     catalog, stamp = current_store() if snapshot is None else store_from_data(snapshot)
     history = PriceHistory() if snapshot is None else None
     message,links = ShopDialog(catalog,history).answer(turns)
-    return {"answer":with_intro(question, message, model_json),"links":links,
-            "as_of":stamp,"discard_turn":message==HELP}
+    if message == HELP:
+        action, conversational = decision(turns, model_json, buyer=True)
+        if action == "chat":
+            return {"answer":conversational,"links":[],"discard_turn":False}
+    return {"answer":message,"links":links,"as_of":stamp,"discard_turn":message==HELP}
 
 
 @app.post("/ask")
