@@ -57,6 +57,14 @@ class ManagerReportsTest(unittest.TestCase):
         self.assertIn(r"Защита \<script\>", answer)
         self.assertNotIn(reader.get.return_value["phone"], answer)
 
+    def test_marked_order_uses_original_prefix_and_leading_zeros(self):
+        planner = infer("order", number="12345", year="2025")
+        question = "Проверь статус заказа №АБ-00012345 за 2025 год"
+        self.assertEqual(request(question, planner, TODAY),
+                         ("/v1/order", {"number": "АБ-00012345", "year": "2025"}))
+        ambiguous = f"{question} и заказа №АБ-00012346"
+        self.assertIn("точный номер", request(ambiguous, planner, TODAY))
+
     def test_invalid_payload_or_offline_has_no_archived_order_fallback(self):
         reader = Mock()
         reader.get.side_effect = OSError("private endpoint")

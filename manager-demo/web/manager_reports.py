@@ -10,6 +10,7 @@ from shop_dialog import INSTRUCTIONS, normalize
 MSK = timezone(timedelta(hours=3))
 BUSINESS = re.compile(r"\b(?:продаж\w*|выручк\w*|закуп\w*|заказ\w*)\b")
 ORDER_NUMBER = re.compile(r"[A-Za-zА-Яа-яЁё0-9-]{1,32}")
+MARKED_ORDER_NUMBER = re.compile(r"\bзаказ(?:а|у|ом|е)?(?:\s+покупателя)?\s*[№#]\s*([A-Za-zА-Яа-яЁё0-9-]+)", re.I)
 NUMBER = re.compile(r"[+-]?[0-9]{1,20}(?:[.,][0-9]{1,10})?")
 REPORT_NAMES = {"sales": "Продажи", "purchases": "Закупки"}
 PARSE = """Определи, запрашивает ли менеджер конкретные данные из рабочей 1С.
@@ -49,9 +50,12 @@ def request(question, infer, today):
             return "Укажи период до 366 дней с датой окончания не позднее сегодняшней."
         return ("/v1/report", {"kind": action, "start": start.isoformat(), "end": end.isoformat()})
     if action == "order":
-        number, year = item["number"], item["year"] or str(today.year)
+        marked = set(MARKED_ORDER_NUMBER.findall(question))
+        number = next(iter(marked)) if len(marked) == 1 else item["number"]
+        year = item["year"] or str(today.year)
         spoken = re.findall(r"[A-Za-zА-Яа-яЁё0-9-]+", question)
-        if not ORDER_NUMBER.fullmatch(number) or not any(c.isascii() and c.isdigit() for c in number) or number not in spoken:
+        if (len(marked) > 1 or not ORDER_NUMBER.fullmatch(number)
+                or not any(c.isascii() and c.isdigit() for c in number) or number not in spoken):
             return "Назови точный номер заказа из 1С или с сайта. Для заказа прошлых лет укажи год."
         if not re.fullmatch(r"[0-9]{4}", year) or not 1900 <= int(year) <= today.year:
             return "Укажи год заказа четырьмя цифрами."
