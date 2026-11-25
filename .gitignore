@@ -215,3 +215,11 @@ Thumbs.db
 !/manager-demo/web/test_manager_terminology.py
 !/manager-demo/qa/equipment-slang-50.json
 !/docs/manager-equipment-slang.md
+!/manager-demo/web/shop_dialog.py
+!/manager-demo/web/shop_knowledge.py
+!/manager-demo/web/shop-knowledge.json
+!/manager-demo/web/site_catalog.py
+!/manager-demo/web/price_history.py
+!/manager-demo/web/test_shop_dialog.py
+!/manager-demo/web/test_site_catalog.py
+!/docs/storefront-knowledge-2026-11-25.md
