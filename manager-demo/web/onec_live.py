@@ -10,13 +10,13 @@ import ssl
 from datetime import datetime, timezone, timedelta
 from decimal import Decimal, InvalidOperation
 from functools import lru_cache
-from http.client import HTTPSConnection
+from http.client import HTTPSConnection, RemoteDisconnected
 from pathlib import Path
 from urllib.parse import urlencode
 from uuid import UUID
 
 from archive_catalog import COLORS, SIZES
-from manager_catalog import ManagerCatalog, display, units
+from manager_catalog import ManagerCatalog, display, glove_change, units
 from manager_knowledge import expand_terms
 
 
@@ -27,11 +27,12 @@ BUDGET = re.compile(
     r"(?![\d.,]|[ \u00a0\u202f]\d|\s*(?:кг|oz|унци\w*|см)\b)", re.I
 )
 STOCK_REQUEST = re.compile(r"\b(?:количеств\w*|остат\w*|наличи\w*|свободно|сколько|доступные размер\w*)\b")
-PRICE_REQUEST = re.compile(r"\b(?:цен[ауыеи]\w*|стоимост\w*|стоит|стоят|почем)\b")
+PRICE_REQUEST = re.compile(r"\b(?:цен(?:[ауыеи]|ой|ою)\w*|стоимост\w*|стоит|стоят|почем)\b")
 SITE_PRICE = re.compile(r"\b(?:на сайте|в интернет[- ]магазине|на витрине|hard-pro\.ru)\b")
 SITE_PRICE_ONLY = re.compile(r"\bтолько\s+цен\w*\b")
 IN_STOCK = re.compile(r"\b(?:в наличии|из наличия)\b")
 COUNT_STOCK = re.compile(r"\b(?:сколько|количеств\w*|остат\w*)\b")
+STOCK_DETAIL = re.compile(r"\b(?:количеств\w*|остат\w*|наличи\w*|свобод\w*|штук\w*)\b")
 ANY_CITY_STOCK = re.compile(r"\b(?:есть|имеются)\b.*\b(?:симферопол\w*|севастопол\w*)\b")
 BOTH_IN_STOCK = re.compile(r"\b(?:в|на)\s+обоих\s+(?:магазин|склад)ах\b")
 DETAIL_REQUEST = re.compile(r"\b(?:описани\w*|материал\w*|состав|производител\w*|характеристик\w*|"
@@ -41,6 +42,12 @@ ALL_STORES = re.compile(r"\b(?:обоих|обоим|оба|всех|все|дв
 MSK = timezone(timedelta(hours=3))
 KNOWLEDGE = Path.home() / ".local/share/hardpro/onec-pilot/catalog-knowledge.json"
 log = logging.getLogger("hardpro.catalog")
+TRANSIENT_LINK_ERRORS = (ConnectionRefusedError, ConnectionResetError, RemoteDisconnected, ssl.SSLEOFError)
+
+
+def site_price_only(query):
+    return (PRICE_REQUEST.search(query) and SITE_PRICE.search(query)
+            and (SITE_PRICE_ONLY.search(query) or not STOCK_REQUEST.search(query)))
 
 
 def budget_value(query):
@@ -82,6 +89,13 @@ class OnecReader:
         self.tls.load_cert_chain(config["cert"], config["key"])
 
     def get(self, route, **params):
+        try:
+            return self.request(route, params)
+        except TRANSIENT_LINK_ERRORS:
+            time.sleep(0.5)
+            return self.request(route, params)
+
+    def request(self, route, params):
         conn = HTTPSConnection(self.host, self.port, context=self.tls, timeout=20)
         try:
             if self.ssh_relay:
@@ -240,7 +254,9 @@ class LiveCatalog(ManagerCatalog):
             budget = budget_value(query)
             previous_product = self.criteria["product"]
             want_stock = bool(STOCK_REQUEST.search(query))
-            want_price = bool(PRICE_REQUEST.search(query))
+            open_quantity = ("сколько" in query and not STOCK_DETAIL.search(query)
+                             and glove_change(query))
+            want_price = bool(PRICE_REQUEST.search(query) or open_quantity)
             want_details = bool(DETAIL_REQUEST.search(query))
             site_price = want_price and SITE_PRICE.search(query)
             only_available = bool((IN_STOCK.search(query) or ANY_CITY_STOCK.search(query))
@@ -270,7 +286,7 @@ class LiveCatalog(ManagerCatalog):
                 _, matches = self.matching_rows(self.criteria["product"], self.criteria["variant"])
                 if matches:
                     self.selected = (matches, self.criteria["warehouse"])
-        if site_price and (SITE_PRICE_ONLY.search(query) or not want_stock):
+        if site_price_only(query):
             return "Цены сайта по этим вариантам пока недоступны."
         if self.selected is None:
             if self.options and result == self.menu():

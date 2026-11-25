@@ -43,6 +43,9 @@ class TerminologyTest(unittest.TestCase):
         self.assertIn("снарядные перчатки", expand_terms("Блинчики для мешка"))
 
     def test_definitions_and_specific_rules_cite_sources(self):
+        self.assertIn("397 г", definition_answer("14 oz это сколько в граммах?"))
+        self.assertIn("nist.gov", definition_answer("Шо такое унцовки?"))
+        self.assertIn("мишени", definition_answer("Тайские пады это что?"))
         self.assertIn("поинтфайтинг", definition_answer("Расшифруй PF"))
         self.assertIn("wako.sport", definition_answer("Расшифруй PF"))
         self.assertIn("ibjjf.com", definition_answer("Что такое no gi?"))

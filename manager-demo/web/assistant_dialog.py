@@ -6,6 +6,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from manager_catalog import BOYBO, CAPA, OXXFIRE_SOCKS, catalog_followup
+from manager_knowledge import expand_terms
 from shop_dialog import CONTACT, HISTORY, INSTRUCTIONS, blocked, normalize
 
 HEALTH = re.compile(
@@ -104,6 +105,10 @@ def decision(turns, infer, *, buyer=False, context=()):
     if buyer and (CONTACT.search(phrase) or STOREFRONT_QUESTIONS.search(phrase)):
         return "search", ""
     payload = {"вопрос": question, "предыдущие вопросы": list(turns[-7:-1])}
+    if not buyer:
+        expanded = expand_terms(question)
+        if expanded.casefold() != phrase:
+            payload["формулировка с развёрнутыми терминами"] = expanded
     if facts := [fact for pattern, fact in GEAR_GUIDANCE if pattern.match(phrase)]:
         payload["справка по экипировке"] = facts
     if context:

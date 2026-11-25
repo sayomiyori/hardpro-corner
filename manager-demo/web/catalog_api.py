@@ -30,8 +30,8 @@ import manager_reports
 
 from site_catalog import read_store
 from shop_dialog import ShopDialog, blocked
-from onec_live import KNOWLEDGE, configured_reader
-from manager_knowledge import competition_answer, definition_answer, merge_clarification, resolve_context
+from onec_live import KNOWLEDGE, configured_reader, site_price_only
+from manager_knowledge import competition_answer, definition_answer, expand_terms, merge_clarification, resolve_context
 
 app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
 models = {"manager": "hardpro-manager", "buyer": "hardpro-shop"}
@@ -43,6 +43,7 @@ _saved_at = None
 _snapshot_lock = threading.Lock()
 _link_down_until = 0.0
 _link_lock = threading.Lock()
+LINK_RETRY_AFTER = 5
 
 
 def snapshot_source():
@@ -121,7 +122,7 @@ def live_catalog(turns):
         cat = configured_reader(reader_config).session()
     except (OSError, ValueError, KeyError) as exc:
         with _link_lock:
-            _link_down_until = time.monotonic() + 120
+            _link_down_until = time.monotonic() + LINK_RETRY_AFTER
         log.warning("канал рабочей 1С не отвечает, отвечаю по выгрузке: %s", exc, exc_info=True)
         return None
     try:
@@ -132,7 +133,7 @@ def live_catalog(turns):
         return cat.answer(turns, lambda m: parse(m[0]["content"], m[1]["content"])).replace("\n", "  \n")
     except (OSError, ValueError, KeyError) as exc:
         with _link_lock:
-            _link_down_until = time.monotonic() + 120
+            _link_down_until = time.monotonic() + LINK_RETRY_AFTER
         log.warning("канал рабочей 1С оборвался во время ответа: %s", exc, exc_info=True)
         return None
 
@@ -172,6 +173,8 @@ def reply(role, turns, context=()):
         action, message = decision(turns, parse, context=context)
         if action == "chat":
             return message
+        if site_price_only(expand_terms(question)):
+            return "Цены сайта по этим вариантам пока недоступны."
         turns = merge_clarification(catalog_turns(turns, parse) if action == "followup" else [question])
         if reader_config:
             answer = live_catalog(turns)

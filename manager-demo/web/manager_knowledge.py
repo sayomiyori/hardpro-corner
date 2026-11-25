@@ -2,6 +2,7 @@
 import json
 import re
 from collections import Counter
+from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
 
@@ -12,12 +13,37 @@ RULES_INTENT = re.compile(
     r"\b(?:федераци\w*|сертификат\w*|турнир\w*|соревновани\w*|регламент\w*|допуск\w*|"
     r"лицензи\w*|одобрен\w*|омологаци\w*|фбр|фдр|фкр|вфс|фсбр|wkf)\b"
 )
-DEFINITION_REQUEST = re.compile(r"\b(?:что (?:такое|значит|означает)|расшифруй\w*|как расшифровывается)\s+")
+DEFINITION_REQUEST = re.compile(r"\b(?:(?:что|шо|чо) (?:такое|за|значит|означает)|"
+                                r"расшифруй\w*|как расшифровывается)\s+")
+DEFINITION_END = re.compile(r"^(.+?)\s*[,—-]?\s+это (?:что|шо|чо)(?: такое| вообще)?[\s.!?]*$")
 HYPHENS = str.maketrans("‐‑–", "---")
+OUNCE_NUMBERS = {
+    "четыре": 4, "четырех": 4, "шесть": 6, "шести": 6, "восемь": 8, "восьми": 8,
+    "десять": 10, "десяти": 10, "двенадцать": 12, "двенадцати": 12,
+    "четырнадцать": 14, "четырнадцати": 14, "шестнадцать": 16, "шестнадцати": 16,
+    "восемнадцать": 18, "восемнадцати": 18, "двадцать": 20, "двадцати": 20,
+}
+OUNCE_UNIT = r"(?:[oо0][zз]|унц(?:и[а-я]*|ов[а-я]*)?)"
+OUNCE_NOTATION = re.compile(
+    rf"(?<![\w-])(?P<weight>\d{{1,2}}(?:[.,]\d{{1,2}})?|{'|'.join(OUNCE_NUMBERS)})"
+    rf"[\s-]*(?P<unit>{OUNCE_UNIT})(?![\w-])", re.I,
+)
+OZ_SIZE = re.compile(r"(?<![\w-])\d{1,2}(?:[.,]\d{1,2})?\s+oz\b", re.I)
+OZ_RANGE = re.compile(rf"(?<![\w-])\d{{1,2}}(?:\s*{OUNCE_UNIT})?\s*"
+                      rf"(?:[-/]|\bили\b|\bи\b|\bдо\b)\s*\d{{1,2}}\s*{OUNCE_UNIT}(?!\w)", re.I)
+GRAM_CONVERSION = re.compile(r"\b(?:грамм\w*|г\b)\b")
 
 
 def normalized(text):
     return text.casefold().replace("ё", "е").translate(HYPHENS)
+
+
+def normalize_ounces(text):
+    def replace(match):
+        weight = match["weight"].casefold()
+        return f"{OUNCE_NUMBERS.get(weight, weight.replace(',', '.'))} oz"
+
+    return OUNCE_NOTATION.sub(replace, text.translate(HYPHENS))
 
 
 @lru_cache(maxsize=1)
@@ -92,17 +118,29 @@ def expand_terms(question):
         return query
     pattern, aliases = glossary()
     query = pattern.sub(lambda match: aliases[match[0]], query)
+    query = normalize_ounces(query)
     # Keep the catalogue's numbered reference after NFKC converts № into "No".
     return re.sub(r"(?<!\w)no\s*(?=\d)", "№", query) if "№" in question else query
 
 
 def definition_answer(question):
     query = normalized(question)
+    weights = OZ_SIZE.findall(normalize_ounces(query))
+    if (len(weights) == 1 and not OZ_RANGE.search(query) and GRAM_CONVERSION.search(query)
+            and re.search(r"^(?:а\s+)?(?:сколько|перевед\w*|\d{1,2}\b)", query)):
+        weight = weights[0].split()[0]
+        grams = Decimal(weight) * Decimal("28.349523125")
+        source = terminology()["sources"]["nist-ounce"]
+        return (f"{weight.replace('.', ',')} oz — около {grams:.0f} г. "
+                f"В карточках боксёрских перчаток такая маркировка относится к заявленной массе одной перчатки.\n"
+                f"[{source['title']}]({source['url']})")
     request = DEFINITION_REQUEST.search(query)
-    if not request:
+    ending = DEFINITION_END.fullmatch(query)
+    if not request and not ending:
         return None
-    subject = query[request.end():].strip(" \t?!.«»\"")
-    if re.match(r"^oz\s+(?:на|у|в)\s+.*перчатк", subject):
+    subject = (query[request.end():] if request else ending[1]).strip(" \t?!.«»\"")
+    if (re.match(r"^(?:[oо][zз]|унци\w*|унцовк\w*)\s+(?:на|у|в)\s+.*перчат", subject)
+            or OZ_SIZE.search(normalize_ounces(subject))):
         subject = "oz"
     if not subject:
         return None
@@ -160,5 +198,6 @@ def competition_answer(question, previous=()):
     for model in knowledge()["models"]:
         if rule["name"] in model["rules"] and words(model["type"]) <= words(query):
             lines.append(f"В карточке HARD-PRO есть отметка о допуске модели [{model['name']}]({model['url']}).")
-    lines.append("Для проверки конкретной модели нужны положение турнира, возрастная группа, маркировка и артикул изделия.")
+    category = "возрастная и весовая категории" if rule["name"].startswith("Бокс,") else "возрастная группа"
+    lines.append(f"Для проверки конкретной модели нужны положение турнира, {category}, маркировка и артикул изделия.")
     return "\n".join(lines)

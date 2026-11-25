@@ -32,6 +32,13 @@ class ReaderTest(unittest.TestCase):
                        "balances":[{"warehouse":A,"on_hand":"2.50","reserved":"2.50"}]}
         self.client.get=Mock(return_value=self.response)
 
+    def test_one_retry_for_a_reconnecting_tunnel(self):
+        self.client.request = Mock(side_effect=[ConnectionRefusedError(), self.response])
+        with patch("onec_live.time.sleep") as wait:
+            self.assertEqual(OnecReader.get(self.client, "/v1/stock", product=P), self.response)
+        wait.assert_called_once_with(0.5)
+        self.assertEqual(self.client.request.call_count, 2)
+
     def test_zero_and_missing_are_distinct(self):
         cat=LiveCatalog({"склады":list(self.client.stores),"товары":[self.item]},self.client)
         result=cat.answer(["Демо","А сколько в наличии размера M?"],lambda _: '{"product":"01","variant":"M","warehouse":""}')
