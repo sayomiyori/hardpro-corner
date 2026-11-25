@@ -11,6 +11,12 @@ CONTACT_LINK = {"label": "Связаться с магазином", "href": "/s
 OFFER_LINK = {"label": "Доставка и оплата", "href": "/shop?legal=offer#delivery"}
 RETURNS_LINK = {"label": "Обмен и возврат", "href": "/shop?legal=returns"}
 CATALOG_LINK = {"label": "Каталог", "href": "/shop"}
+MANAGER_LINK = {"label": "Связаться с менеджером", "href": "/shop?legal=seller", "action": "manager"}
+MANAGER_REQUEST = re.compile(
+    r"\b(?:позови\w*|позовите|соедини\w*|переключи\w*|свяжи\w*|хочу поговорить|как связаться)"
+    r".{0,30}\b(?:менеджер\w*|оператор\w*|человек\w*|консультант\w*)"
+    r"|^(?:к менеджеру|менеджер|оператор)[.!?]*$"
+)
 CONSULT = re.compile(
     r"\b(?:что|чем|зачем|означа\w*|сколько грамм\w*|стоит ли|хватает ли|"
     r"одинаково|требу\w*|заменя\w*|допуст\w*|гарантир\w*|отлича\w*|защища\w*)\b"
@@ -25,6 +31,12 @@ PRIVATE_SYSTEM = re.compile(
     r"\b(?:1[сc]|парол\w*|токен\w*|секрет\w*|промпт\w*|prompt|api[- ]ключ\w*"
     r"|служебн\w* (?:настройк\w*|данн\w*)|внутренн\w* инструкци\w*)\b"
 )
+
+
+def manager_answer(phrase):
+    if MANAGER_REQUEST.search(phrase):
+        return "С менеджером можно связаться в MAX или по телефону.", [MANAGER_LINK]
+    return None
 
 
 @lru_cache(maxsize=1)
@@ -72,7 +84,7 @@ def scope_answer(phrase):
     if re.search(r"\b(?:личн\w+ номер\w* телефон\w*|домашн\w+ адрес\w*|мой адрес|адрес доставки|мой (?:личный )?телефон)\b", phrase):
         return "Не публикуйте в чате телефон и адрес доставки. Если они нужны для заказа, передайте их сотруднику магазина через официальный канал.", [CONTACT_LINK]
     if ORDER_STATUS.search(phrase):
-        return "Я не могу проверить конкретный заказ в этом чате. Свяжитесь с магазином через официальный контакт и уточните статус у менеджера.", [CONTACT_LINK]
+        return "Статус конкретного заказа подскажет менеджер. Свяжитесь с магазином через официальный контакт.", [MANAGER_LINK]
     if re.search(r"\b(?:закупочн\w*|марж\w*|внутренн\w* сумм\w*|внутренн\w* продаж\w*|выручк\w*)\b", phrase):
         return "Внутренние продажи, закупочные цены и маржа недоступны покупательскому чату. Могу проверить опубликованную розничную цену.", []
     if PRIVATE_SYSTEM.search(phrase):
@@ -89,6 +101,18 @@ def scope_answer(phrase):
 
 def policy_answer(phrase):
     shop = data()["store"]
+    if re.search(r"\bкорзин\w*\b", phrase) and not re.search(r"\b(?:оформ\w*|оплат\w*)\b", phrase):
+        return "Откройте корзину, чтобы посмотреть выбранные товары и их количество.", [
+            {"label": "Открыть корзину", "href": "/shop/cart"}
+        ]
+    if re.search(r"\b(?:личн\w* кабинет\w*|войти в аккаунт|личный аккаунт)\b", phrase):
+        return "Войти и посмотреть свои данные можно в личном кабинете.", [
+            {"label": "Личный кабинет", "href": "/account/"}
+        ]
+    if re.fullmatch(r"(?:(?:где|открой\w*|покажи\w*) )?(?:поиск(?: на сайте)?|статьи(?: на сайте)?|блог)[?!.]*", phrase):
+        return ("Собрали советы по выбору и уходу за экипировкой.", [{"label": "Статьи HARD-PRO", "href": "/blog/"}]) if (
+            re.search(r"статьи|блог", phrase)
+        ) else ("Введите товар, бренд или тему статьи.", [{"label": "Поиск по сайту", "href": "/search"}])
     if re.search(r"\b(?:возврат\w*|вернуть|обменять|обмен\b)", phrase):
         return shop["returns"], [RETURNS_LINK]
     if re.search(r"\b(?:наличн\w*|наличными)\b", phrase):

@@ -99,3 +99,21 @@ class WidgetSecurityTest(unittest.TestCase):
             self.assertEqual(response.status_code, 200)
             self.assertIn("2 500 ₽", response.json()["answer"])
             read.assert_not_called()
+
+    def test_busy_service_asks_client_to_wait(self):
+        class Busy:
+            async def acquire(self):
+                raise TimeoutError
+
+        with patch.object(self.widget, "slots", Busy()), patch.object(self.widget, "current_store") as read:
+            response = self.client.post("/ask", headers=self.headers, json={"turns": ["Покажи каталог."]})
+            self.assertEqual(response.status_code, 429)
+            self.assertEqual(response.headers["Retry-After"], "2")
+            read.assert_not_called()
+
+    def test_manager_contact_without_live_catalogue(self):
+        with patch.object(self.widget, "current_store") as read:
+            reply = self.client.post("/ask", headers=self.headers, json={"turns": ["Позови менеджера."]})
+            self.assertEqual(reply.status_code, 200)
+            self.assertEqual(reply.json()["links"][0]["action"], "manager")
+            read.assert_not_called()

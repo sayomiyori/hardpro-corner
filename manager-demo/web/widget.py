@@ -15,7 +15,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from price_history import PriceHistory
 from shop_dialog import HELP, ShopDialog, blocked, normalize
-from shop_knowledge import equipment_answer, scope_answer
+from shop_knowledge import CATALOG_LINK, MANAGER_LINK, equipment_answer, manager_answer, scope_answer
 from site_catalog import store_from_data
 
 FEED = os.environ.get("STOREFRONT_FEED_URL", "http://127.0.0.1:8094/internal/catalog-assistant")
@@ -57,18 +57,28 @@ def current_store():
 
 def answer(turns, snapshot):
     question = turns[-1]
-    refusal = scope_answer(normalize(question)) or blocked(question)
+    phrase = normalize(question)
+    refusal = scope_answer(phrase) or blocked(question)
     if refusal:
         message,links = refusal
         return {"answer":message,"links":links,"discard_turn":True}
+    if handoff := manager_answer(phrase):
+        message, links = handoff
+        return {"answer": message, "links": links, "discard_turn": False}
     if message := equipment_answer(question):
         return {"answer":message,"links":[],"discard_turn":False}
     turns = [q for q in turns[:-1] if not blocked(q) and not scope_answer(normalize(q))
              and not equipment_answer(q)] + [question]
     catalog, stamp = current_store() if snapshot is None else store_from_data(snapshot)
     history = PriceHistory() if snapshot is None else None
-    message,links = ShopDialog(catalog,history).answer(turns)
-    return {"answer":message,"links":links,"as_of":stamp,"discard_turn":message==HELP}
+    dialog = ShopDialog(catalog, history)
+    message, links = dialog.answer(turns)
+    if message == HELP:
+        links = [CATALOG_LINK, MANAGER_LINK]
+    result = {"answer": message, "links": links, "as_of": stamp, "discard_turn": message == HELP}
+    if dialog.display is not None:
+        result["display"] = dialog.display
+    return result
 
 
 def unique_fields(pairs):
@@ -113,7 +123,7 @@ async def ask(request: Request):
     try:
         await asyncio.wait_for(slots.acquire(),timeout=1)
     except TimeoutError:
-        raise HTTPException(429,"Помощник занят. Повторите через несколько секунд.")
+        raise HTTPException(429,"Помощник занят. Повторите через несколько секунд.", headers={"Retry-After": "2"})
     try:
         result = await run_in_threadpool(answer,turns,snapshot)
         return JSONResponse(result,headers={"Cache-Control":"no-store"})

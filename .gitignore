@@ -226,3 +226,5 @@ Thumbs.db
 !/manager-demo/web/widget.py
 !/manager-demo/web/test_widget_security.py
 !/docs/storefront-security-2026-11-25.md
+!/docs/storefront-widget-cards-2026-11-25.md
+!/manager-demo/README.md
