@@ -72,18 +72,30 @@ FILLER |= words("которые которых нужен именно пров�
                 "магазине склад складе стоит стоят почем в наличии подходящие номера номерами "
                 "номер пожалуйста плиз которые именно того этого варианта их к выйдет обе списком "
                 "раздел категория категории каталог ссылку ссылка карточка карточку дай скинь пришли отправь "
-                "открыть открой той них ними")
+                "открыть открой той них ними этот это лучше глянь гляньте скиньте у вас")
 CONTAINS_ARTICLE = re.compile(r"(?<![\w-])[a-zа-я0-9]+(?:-[a-zа-я0-9]+)+(?![\w-])", re.I)
 BUDGET = re.compile(r"\b(?:не дороже|до|бюджет(?:ом)?)\s*(\d+(?:[ \u00a0]\d{3})*)\s*"
                     r"(тыс\w*|к\b)?\s*(?:₽|руб\w*)?(?!\d|\s*(?:oz|унц|см|кг)\b)")
 QUANTITY = re.compile(r"\b(\d{1,3}|одну|две|два|три|четыре|пять)\s+(?:штук\w*|шт\.?|пар\w*)\b")
+LEADING_QUANTITY = re.compile(
+    rf"\b(?:нужно|нужны|возьму|куплю)\s+([1-9][0-9]{{0,2}})(?:\s+{COLORS.pattern})?"
+    r"(?=\s+(?:перчат|шорт|бинт|кап|рашгард|трико|шлем|футболк)\w*\b)", re.I
+)
 STOREFRONT_INTENT = re.compile(r"\b(?:ищу|найди\w*|покажи\w*|подбер\w*|прода[её]\w*|"
                                r"магазин\w*|ассортимент\w*|достав\w*|в наличии|цена|стоит|стоимость|сколько стоят)\b")
 STORE_LOCATION = re.compile(r"\b(?:офлайн[- ]магазин\w*|где вход|открыт\w*|выходно\w*|воскресень\w*)\b")
 PUBLIC_HOTLINE = re.compile(r"\b(?:бесплатн\w* номер\w*|общ\w* номер\w*)\b")
 NEGATIVE_ITEM = re.compile(r"\s+(?:не\s+(?!дороже\b|более\b|дешевле\b|менее\b)|без\s+)")
 PART_OF_STORE = re.compile(r"\b(?:севастопол\w*|симферопол\w*)\b")
-EXACT_ATTRIBUTES = re.compile(r"\b(?:размер\w*|рост(?:ом|а)?)\s+(\d+(?:[.,]\d+)?)\b")
+EXACT_ATTRIBUTES = re.compile(
+    r"\b(?:(?:размер\w*|рост(?:ом|а)?)\s+(\d+(?:[.,]\d+)?)"
+    r"|(?<![\w-])(\d+(?:[.,]\d+)?)\s+(?:размер\w*(?!\s+(?:[0-9]|[2-6]?[xх]*[mslмл]\b))"
+    r"|р(?=[\s.,!?]|$)))\b"
+)
+FRACTIONAL_SHOE_SIZE = re.compile(r"(?<![\w.,])(?:3[0-9]|4[0-9]|50)[.,][05](?![\w.,])")
+SHOE_PRODUCT = re.compile(r"\b(?:боксерк\w*|борцовк\w*|ботин\w*|обувь)\b")
+FORTY_SHOE_SIZE = re.compile(r"\bсороков(?:ой|ого|ому|ым|ом)\b")
+PRICE_PER_PAIR = re.compile(r"\b(?:почем|сколько стоит)\s+(?:одна\s+)?пара\b")
 SAMBO_SHOES = re.compile(r"\bсамбовк\w*[^?]*?\bтолько\s+(?:обувь|ботинки)\b")
 LONG_SLEEVE = re.compile(r"\bдлинн\w*\s+рукав\w*\b")
 SHIN_SLEEVE = re.compile(r"\bчул(?:ок|к\w*)\b")
@@ -147,7 +159,7 @@ def budget_limit(phrase):
 def attributes(text):
     size_text = OZ_SIZE.sub(" ", text)
     sizes = [m[0] for m in SIZES.finditer(size_text)]
-    sizes.extend(EXACT_ATTRIBUTES.findall(size_text))
+    sizes.extend(left or right for left, right in EXACT_ATTRIBUTES.findall(size_text))
     colors = [COLOR_EXCEPTIONS.get(stem, stem + "ый") for stem in COLORS.findall(text)]
     return {kind: " ".join(values) for kind, values in {
         "color": colors, "weight": OZ_SIZE.findall(text), "size": sizes,
@@ -430,6 +442,21 @@ class ShopDialog:
             result = (clarification, []) if clarification else self.turn(expand_terms(question).casefold())
         return result
 
+    def shoe_size_query(self, query):
+        if FORTY_SHOE_SIZE.search(query) and (
+            SHOE_PRODUCT.search(query)
+            or any(SHOE_PRODUCT.search(normalize(self.cat.products[code]["товар"])) for code in self.selected)
+        ):
+            return FORTY_SHOE_SIZE.sub("размер 40", query)
+        match = FRACTIONAL_SHOE_SIZE.search(query)
+        if not match or EXACT_ATTRIBUTES.search(query) or SIZES.match(query[match.start():]):
+            return query
+        terms = words(PART_OF_STORE.sub(" ", FRACTIONAL_SHOE_SIZE.sub(" ", query, count=1))) - FILLER
+        if terms and any(terms <= tokens and SHOE_PRODUCT.search(normalize(self.cat.products[code]["товар"]))
+                         for code, tokens in self.cat.product_words.items()):
+            return query[:match.start()] + "размер " + query[match.start():]
+        return query
+
     def turn(self, phrase):
         city = city_in(phrase)
         if handoff := manager_answer(phrase):
@@ -466,19 +493,23 @@ class ShopDialog:
             return self.equipment((self.pending_kit + " " + phrase).strip())
         wants_card = bool(PHOTO_QUERY.search(phrase) or LINK_QUERY.search(phrase))
         query = PHOTO_QUERY.sub(" ", NEGATIVE_ITEM.split(phrase, 1)[0])
+        query = self.shoe_size_query(query)
         if self.selected and any(re.search(ITEMS["Перчатки"], normalize(self.cat.products[code]["товар"]))
                                  for code in self.selected):
             query = OZ_SHORT.sub(r"\1 oz", query)
         anchors = attributes(query)
         if OZ_RANGE.search(query) or len(OZ_SIZE.findall(query)) > 1:
             return "Какой вес перчаток проверить первым? Укажите один вариант в унциях.", []
-        quantity_match = QUANTITY.search(query)
+        quantity_match = QUANTITY.search(query) or LEADING_QUANTITY.search(query)
         quantity = None
         if quantity_match:
             label = quantity_match[1]
             quantity = int(label) if label.isdigit() else {"одну":1,"две":2,"два":2,"три":3,"четыре":4,"пять":5}[label]
         budget = budget_limit(query)
-        term_phrase = PART_OF_STORE.sub(" ", QUANTITY.sub(" ", BUDGET.sub(" ", query)))
+        term_phrase = BUDGET.sub(" ", query)
+        if quantity_match:
+            term_phrase = QUANTITY.sub(" ", LEADING_QUANTITY.sub(" ", term_phrase))
+        term_phrase = PRICE_PER_PAIR.sub(" ", PART_OF_STORE.sub(" ", term_phrase))
         term_phrase = COLORS.sub(" ", EXACT_ATTRIBUTES.sub(" ", SIZES.sub(" ", term_phrase)))
         categories = [re.compile(pattern) for pattern in ITEMS.values() if re.search(pattern, query)]
         if LONG_SLEEVE.search(query):

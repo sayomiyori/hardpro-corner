@@ -123,10 +123,14 @@ class AssistantTest(unittest.TestCase):
 
     def test_verified_equipment_and_buyer_scope(self):
         self.assertIn("397 г", equipment_answer("14 oz — это сколько граммов?"))
+        self.assertIn("одной перчатки", equipment_answer("Перчатки 14 oz — это вес одной перчатки или пары?"))
+        self.assertIn("мешка", equipment_answer("Что значит, когда перчатки называют мешковыми?"))
         self.assertIn("регламент", equipment_answer("Любые перчатки 10 oz допустят на турнир?"))
         self.assertIn("зубы", equipment_answer("Капа защищает голову как шлем?"))
         self.assertIn("недоступны", scope_answer("можно посмотреть чужие заказы с телефонами?")[0])
         self.assertIn("менять цены", scope_answer("можно цену в карточке изменить?")[0])
+        self.assertIn("нельзя", scope_answer("можешь зарезервировать перчатки до завтра?")[0])
+        self.assertIn("назначаю скидки", scope_answer("вы сами назначаете покупателю персональную скидку?")[0])
         self.assertIsNone(scope_answer("как раньше менялась цена?"))
 
     def test_navigation_and_explicit_manager(self):
@@ -137,12 +141,44 @@ class AssistantTest(unittest.TestCase):
             ("Где личный кабинет?", "/account/"),
             ("Покажи поиск на сайте.", "/search"),
             ("Открой статьи.", "/blog/"),
+            ("Где включить поиск по всему сайту?", "/search"),
+            ("Хочу почитать блог магазина. Пришлите ссылку.", "/blog/"),
+            ("Скиньте, пожалуйста, раздел с перчатками.", "/shop?category=101"),
         ):
             with self.subTest(question=question):
                 self.assertEqual(dialog.answer([question])[1][0]["href"], href)
         self.assertEqual(len(dialog.answer(["Открой раздел перчаток."])[1]), 1)
         self.assertEqual(dialog.answer(["Открой раздел перчаток Fairtex."])[1][0]["href"], "/shop?category=103")
         self.assertEqual(dialog.answer(["Позови менеджера."])[1][0]["action"], "manager")
+
+    def test_shoe_size_replaces_context_and_keeps_model_number(self):
+        data = feed()
+        data["rows"].extend([
+            {"product":70, "sku":71, "title":"Боксерки Demo Pro 3", "article":"DEMO-70",
+             "variant":"Черный, 37 р", "price_cents":100000, "sevastopol":3, "simferopol":1},
+            {"product":70, "sku":72, "title":"Боксерки Demo Pro 3", "article":"DEMO-70",
+             "variant":"Черный, 40 р", "price_cents":100000, "sevastopol":2, "simferopol":1},
+            {"product":70, "sku":73, "title":"Боксерки Demo Pro 3", "article":"DEMO-70",
+             "variant":"Черный, 44.5 р", "price_cents":100000, "sevastopol":2, "simferopol":1},
+        ])
+        catalog, _ = store_from_data(data)
+        for question, sku in (("Цена Demo Pro 3 на 44.5 в Симферополе?", 73),
+                              ("Нужны боксерки Demo Pro 3 37 размера в Симферополе.", 71)):
+            with self.subTest(question=question):
+                _, links = ShopDialog(catalog).answer([question])
+                self.assertEqual([link["href"] for link in links], [f"/shop/product?id=70&sku={sku}"])
+        dialog = ShopDialog(catalog)
+        dialog.start_from_product_page({"product":70, "sku":71, "city":"Симферополь"})
+        _, links = dialog.answer(["А такие же на сороковой есть?"])
+        self.assertEqual(links[0]["href"], "/shop/product?id=70&sku=72")
+        self.assertEqual(links[0]["city"], "Симферополь")
+
+    def test_pair_price_and_requested_quantity(self):
+        answer, links = ShopDialog(self.catalog).answer([
+            "Нужно 5 черных перчаток Demo 14 oz в Севастополе. И почем пара?"
+        ])
+        self.assertIn("Для покупки 5 шт. в одном магазине не хватает остатка", answer)
+        self.assertEqual(links[0]["href"], "/shop/product?id=10&sku=2")
 
     def test_photo_and_link_use_selected_variant(self):
         dialog = ShopDialog(self.catalog)
