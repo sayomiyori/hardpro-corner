@@ -8,6 +8,14 @@ from zoneinfo import ZoneInfo
 from archive_catalog import Catalog
 
 STORES = ["Севастополь", "Симферополь"]
+PHOTO_PATH = re.compile(r"/assets/images/(?:[a-z0-9_-][a-z0-9_.-]*/)*[a-z0-9_-][a-z0-9_.-]*\.(?:avif|webp|jpe?g|png)", re.I)
+
+
+def public_photo(value):
+    if not isinstance(value, str) or len(value) > 512:
+        return ""
+    path = value if value.startswith("/") else "/" + value
+    return path if PHOTO_PATH.fullmatch(path) else ""
 
 
 class StoreCatalog(Catalog):
@@ -66,7 +74,8 @@ def store_from_data(data):
             raise ValueError("Invalid shop quantity")
         rows.append({"товар": r["title"], "артикул": r["article"], "вариант": r["variant"],
                      "код": "P"+str(r["product"]), "id": str(r["sku"]) if r["sku"] is not None else "", "склады": dict(zip(STORES, stock)),
-                     "price_cents":price,"old_price_cents":old_price})
+                     "price_cents":price,"old_price_cents":old_price,
+                     "photo":public_photo(r.get("photo")), "product_photo":public_photo(r.get("product_photo"))})
     for contact in data.get("contacts",[]):
         if ((contact["key"],contact["city"]) not in zip(("sevastopol","simferopol"),STORES)
                 or not re.fullmatch(r"\+7[0-9]{10}",contact["phone"])):
@@ -75,6 +84,11 @@ def store_from_data(data):
     stamp = datetime.fromisoformat(data["as_of"]).astimezone(ZoneInfo("Europe/Moscow"))
     catalog = StoreCatalog({"склады": STORES, "товары": rows})
     catalog.contacts = contacts
+    catalog.sections = [
+        (section["id"], section["title"]) for section in data.get("sections", [])
+        if isinstance(section, dict) and type(section.get("id")) is int and 0 < section["id"] < 10**10
+        and isinstance(section.get("title"), str) and 0 < len(section["title"]) <= 160
+    ]
     catalog.vocabulary = set().union(*catalog.product_words.values())
     catalog.articles = {}
     for code,row in catalog.products.items():

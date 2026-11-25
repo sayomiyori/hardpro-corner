@@ -14,8 +14,10 @@ from site_catalog import store_from_data
 def feed(now=None):
     return {"as_of":(now or datetime.now(timezone.utc)).isoformat(),"rows":[
         {"product":10,"sku":1,"title":"Боксёрские перчатки Demo","article":"DEMO-10","variant":"12 oz, Черный",
+         "photo":"/assets/images/catalog/black-12.webp", "product_photo":"/assets/images/catalog/demo.webp",
          "price_cents":250000,"old_price_cents":290000,"sevastopol":2,"simferopol":1},
         {"product":10,"sku":2,"title":"Боксёрские перчатки Demo","article":"DEMO-10","variant":"14 oz, Черный",
+         "product_photo":"/assets/images/catalog/demo.webp",
          "price_cents":260000,"sevastopol":1,"simferopol":0},
         {"product":20,"sku":3,"title":"Бинты для бокса","article":"DEMO-20","variant":"4 м",
          "price_cents":19000,"sevastopol":5,"simferopol":2},
@@ -27,7 +29,9 @@ def feed(now=None):
          "price_cents":140000,"sevastopol":2,"simferopol":2},
         {"product":50,"sku":6,"title":"Шорты Demo","article":"DEMO-50","variant":"M",
          "price_cents":150000,"sevastopol":2,"simferopol":0},
-    ],"contacts":[{"city":"Симферополь","key":"simferopol","address":"Адрес магазина","phone":"+70000000000","hours":"Вт–Сб 11:00–19:00"}]}
+    ],"contacts":[{"city":"Симферополь","key":"simferopol","address":"Адрес магазина","phone":"+70000000000","hours":"Вт–Сб 11:00–19:00"}],
+       "sections":[{"id":101,"title":"Перчатки"},{"id":102,"title":"Защита ног"},
+                   {"id":103,"title":"Перчатки Fairtex"}]}
 
 
 class AssistantTest(unittest.TestCase):
@@ -45,7 +49,8 @@ class AssistantTest(unittest.TestCase):
         result,links = ShopDialog(self.catalog).answer(["Собери комплект для бокса в Севастополе до 2600 рублей"])
         self.assertTrue("выше указанного бюджета" in result)
         self.assertTrue("Не нашёл: Капа" in result)
-        self.assertEqual(len(links),2)
+        self.assertEqual(len([entry for entry in links if "title" in entry]),2)
+        self.assertEqual(links[-1]["action"],"manager")
         _,links = ShopDialog(self.catalog).answer(["Собери комплект из шорт и рашгарда размера M в Севастополе"])
         self.assertEqual({item["href"] for item in links},{"/shop/product?id=40&sku=5","/shop/product?id=50&sku=6"})
 
@@ -60,7 +65,7 @@ class AssistantTest(unittest.TestCase):
         catalog, _ = store_from_data(data)
         result, links = ShopDialog(catalog).answer(["Слушай, нужны капы BoyBo в Симферополе"])
         self.assertIn("не нашёл таких товаров", result)
-        self.assertEqual(links, [])
+        self.assertEqual([entry["action"] for entry in links], ["manager"])
         data["rows"][3]["title"] = "Капа BoyBo Basic"
         catalog, _ = store_from_data(data)
         result, links = ShopDialog(catalog).answer(["Слушай, нужны капы BoyBo в Симферополе"])
@@ -113,7 +118,7 @@ class AssistantTest(unittest.TestCase):
         self.assertEqual(links[0]["href"], "/shop/product?id=10&sku=1")
         answer, links = ShopDialog(catalog).answer(["Нужны перчатки ZZZ-FAKE-949"])
         self.assertIn("не нашёл", answer)
-        self.assertEqual(links, [])
+        self.assertEqual([entry["action"] for entry in links], ["manager"])
 
     def test_verified_equipment_and_buyer_scope(self):
         self.assertIn("397 г", equipment_answer("14 oz — это сколько граммов?"))
@@ -122,6 +127,35 @@ class AssistantTest(unittest.TestCase):
         self.assertIn("недоступны", scope_answer("можно посмотреть чужие заказы с телефонами?")[0])
         self.assertIn("менять цены", scope_answer("можно цену в карточке изменить?")[0])
         self.assertIsNone(scope_answer("как раньше менялась цена?"))
+
+    def test_navigation_and_explicit_manager(self):
+        dialog = ShopDialog(self.catalog)
+        for question, href in (
+            ("Открой раздел перчаток.", "/shop?category=101"),
+            ("Где корзина?", "/shop/cart"),
+            ("Где личный кабинет?", "/account/"),
+            ("Покажи поиск на сайте.", "/search"),
+            ("Открой статьи.", "/blog/"),
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(dialog.answer([question])[1][0]["href"], href)
+        self.assertEqual(len(dialog.answer(["Открой раздел перчаток."])[1]), 1)
+        self.assertEqual(dialog.answer(["Открой раздел перчаток Fairtex."])[1][0]["href"], "/shop?category=103")
+        self.assertEqual(dialog.answer(["Позови менеджера."])[1][0]["action"], "manager")
+
+    def test_photo_and_link_use_selected_variant(self):
+        dialog = ShopDialog(self.catalog)
+        _, links = dialog.answer([
+            "Покажи перчатки Demo 12 oz в Симферополе.",
+            "Пришли фото и ссылку.",
+        ])
+        self.assertEqual(links[0]["href"], "/shop/product?id=10&sku=1")
+        self.assertEqual(links[0]["photo"], "/assets/images/catalog/black-12.webp")
+        self.assertEqual(links[0]["facts"], ["Симферополь · 1 шт."])
+        self.assertEqual(links[0]["price"], "2 500 ₽")
+        self.assertEqual(dialog.display, "")
+        _, links = ShopDialog(self.catalog).answer(["Покажи перчатки Demo 14 oz."])
+        self.assertEqual(links[0]["photo_note"], "Фото модели")
 
     def test_price_history_without_invented_baseline(self):
         now = datetime.now(timezone.utc)
