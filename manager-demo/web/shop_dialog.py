@@ -89,6 +89,7 @@ LONG_SLEEVE = re.compile(r"\bдлинн\w*\s+рукав\w*\b")
 SHIN_SLEEVE = re.compile(r"\bчул(?:ок|к\w*)\b")
 PHOTO_QUERY = re.compile(r"\b(?:фото\w*|фотк\w*|картинк\w*|изображени\w*|как выгляд\w*)\b")
 LINK_QUERY = re.compile(r"\b(?:ссылк\w*|карточк\w*)\b")
+OFFER_QUERY = re.compile(r"\b(?:цен\w*|стоимост\w*|стоит|стоят|почем|сколько|наличи\w*|остат\w*|есть)\b")
 SECTION_QUERY = re.compile(r"\b(?:раздел\w*|категори\w*)\b")
 COLOR_EXCEPTIONS = {"син": "синий", "голуб": "голубой", "золот": "золотой"}
 MISSING = "В опубликованном каталоге пока не нашёл таких товаров."
@@ -164,6 +165,19 @@ class ShopDialog:
         self.budget = None
         self.pending_kit = ""
         self.display = None
+        self.page_variant = None
+
+    def start_from_product_page(self, context):
+        code = f'P{context["product"]}'
+        if code not in self.cat.by_product:
+            return
+        self.selected = [code]
+        self.city = context.get("city")
+        if sku := context.get("sku"):
+            self.page_variant = next((self.cat.rows[i] for i in self.cat.by_product[code]
+                                      if self.cat.rows[i]["id"] == str(sku)), None)
+            if self.page_variant is not None:
+                self.filters = attributes(normalize(self.page_variant["вариант"]))
 
     @property
     def attrs(self):
@@ -325,6 +339,7 @@ class ShopDialog:
         return "\n".join(lines), links
 
     def show(self, row, quantity=None):
+        self.page_variant = None
         self.options = []
         self.selected = [row["код"]]
         self.filters = attributes(normalize(row["вариант"])) if row["id"] else {}
@@ -368,6 +383,7 @@ class ShopDialog:
         return "\n".join(lines), [card]
 
     def choose(self, codes, quantity=None):
+        self.page_variant = None
         indices = [i for code in codes for i in self.cat.by_product[code]]
         rows = [self.cat.rows[i] for i in indices if self.active_variant(i)]
         if not rows:
@@ -483,13 +499,16 @@ class ShopDialog:
         compare = bool(HISTORY.search(query))
         all_cities = all(name.casefold().rstrip("ь") in phrase for name in STORES) or bool(re.search(r"\b(?:оба|обоих|всех|другом)\s+(?:город\w*|магазин\w*|склад\w*)", phrase))
         previous = [code for code in self.selected if same_category(self.cat.products[code])]
-        if not terms and previous and (anchors or city or all_cities or compare or quantity or budget or wants_card):
+        if not terms and previous and (anchors or city or all_cities or compare or quantity or budget is not None
+                                       or wants_card or OFFER_QUERY.search(query)):
             self.filters.update(anchors)
             if city or all_cities:
                 self.city = city
             if budget is not None:
                 self.budget = budget
             self.compare = self.compare or compare
+            if self.page_variant is not None and not anchors and self.budget is None:
+                return self.show(self.page_variant, quantity)
             return self.choose(previous, quantity)
         if wants_card and not (terms or categories):
             return "Какой товар показать? Напишите название или выберите модель в каталоге.", [CATALOG_LINK]

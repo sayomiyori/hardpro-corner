@@ -16,7 +16,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from price_history import PriceHistory
 from shop_dialog import HELP, ShopDialog, blocked, normalize
 from shop_knowledge import CATALOG_LINK, MANAGER_LINK, equipment_answer, manager_answer, scope_answer
-from site_catalog import store_from_data
+from site_catalog import STORES, store_from_data
 
 FEED = os.environ.get("STOREFRONT_FEED_URL", "http://127.0.0.1:8094/internal/catalog-assistant")
 MIME = "application/json"
@@ -55,7 +55,7 @@ def current_store():
         return snapshot_data
 
 
-def answer(turns, snapshot):
+def answer(turns, snapshot, context=None):
     question = turns[-1]
     phrase = normalize(question)
     refusal = scope_answer(phrase) or blocked(question)
@@ -72,6 +72,8 @@ def answer(turns, snapshot):
     catalog, stamp = current_store() if snapshot is None else store_from_data(snapshot)
     history = PriceHistory() if snapshot is None else None
     dialog = ShopDialog(catalog, history)
+    if context is not None:
+        dialog.start_from_product_page(context)
     message, links = dialog.answer(turns)
     if message == HELP:
         links = [CATALOG_LINK, MANAGER_LINK]
@@ -90,6 +92,23 @@ def unique_fields(pairs):
     return fields
 
 
+def page_context(body):
+    if "context" not in body:
+        return None
+    context = body["context"]
+    if not isinstance(context, dict) or context.keys() - {"product", "sku", "city"}:
+        raise ValueError()
+    for field in ("product", "sku"):
+        if field == "sku" and field not in context:
+            continue
+        value = context[field]
+        if type(value) is not int or not 0 < value <= 4_294_967_295:
+            raise ValueError()
+    if "city" in context and context["city"] not in STORES:
+        raise ValueError()
+    return context
+
+
 @app.post("/ask")
 async def ask(request: Request):
     auth = request.headers.get("authorization","")
@@ -106,8 +125,10 @@ async def ask(request: Request):
         raw.extend(chunk)
     try:
         body = json.loads(raw, object_pairs_hook=unique_fields)
-        if not isinstance(body, dict) or body.keys()!=({"catalog","turns"} if local else {"turns"}):
+        required = {"catalog", "turns"} if local else {"turns"}
+        if not isinstance(body, dict) or body.keys() not in (required, required | {"context"}):
             raise ValueError()
+        context = page_context(body)
         turns = body["turns"]
         if not isinstance(turns,list) or not 1<=len(turns)<=16 or not all(
             isinstance(q,str) and 0<len(q)<=800 and q.strip() for q in turns
@@ -125,7 +146,7 @@ async def ask(request: Request):
     except TimeoutError:
         raise HTTPException(429,"Помощник занят. Повторите через несколько секунд.", headers={"Retry-After": "2"})
     try:
-        result = await run_in_threadpool(answer,turns,snapshot)
+        result = await run_in_threadpool(answer, turns, snapshot, context)
         return JSONResponse(result,headers={"Cache-Control":"no-store"})
     except (ValueError,KeyError,TypeError,OSError,RuntimeError,sqlite3.Error):
         raise HTTPException(503,"Сейчас не удаётся сверить данные магазина. Попробуйте ещё раз.")

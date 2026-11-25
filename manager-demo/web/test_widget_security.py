@@ -45,6 +45,10 @@ class WidgetSecurityTest(unittest.TestCase):
                 b'{"turns":[1]}',
                 b'{"turns":["a"],"turns":["b"]}',
                 b'{"turns":["a"],"catalog":{}}',
+                b'{"turns":["a"],"context":{"product":true}}',
+                b'{"turns":["a"],"context":{"product":10,"sku":0}}',
+                b'{"turns":["a"],"context":{"product":10,"city":"other"}}',
+                b'{"turns":["a"],"context":{"product":10,"price":1}}',
                 json.dumps({"turns": [" " * 801 + "a"]}),
                 json.dumps({"turns": ["a"] * 17}),
                 json.dumps({"turns": [chr(0xD800)]}),
@@ -55,6 +59,28 @@ class WidgetSecurityTest(unittest.TestCase):
                 self.client.post("/ask", headers=self.headers, content=b" " * 24001).status_code, 413
             )
             read.assert_not_called()
+
+    def test_product_page_context_uses_only_published_variants(self):
+        context = {"product": 10, "sku": 1, "city": "Симферополь"}
+        accepted_cases = (
+            (["Сколько стоит?"], context, 1, "Симферополь — доступно 1"),
+            (["а такие же на 14 унций есть?"], context, 2, "Симферополь — доступно 0"),
+            (["а такие же на 14 унций есть?", "А в Севастополе?"], context, 2, "Севастополь — доступно 1"),
+            (["Покажи капу DEMO-30"], context, 4, "Капа для бокса"),
+            (["а такие же на 14 унций есть?"], {**context, "sku": 4}, 2, "Симферополь — доступно 0"),
+        )
+        with patch.object(self.widget, "current_store", return_value=self.catalog):
+            for turns, hint, sku, detail in accepted_cases:
+                with self.subTest(turns=turns, hint=hint):
+                    response = self.client.post("/ask", headers=self.headers, json={"turns": turns, "context": hint})
+                    self.assertEqual(response.status_code, 200)
+                    result = response.json()
+                    self.assertIn(detail, result["answer"])
+                    self.assertTrue(result["links"][0]["href"].endswith(f"&sku={sku}"))
+            unknown = self.client.post("/ask", headers=self.headers, json={
+                "turns": ["А такие же на 14 унций есть?"], "context": {**context, "product": 999},
+            })
+            self.assertEqual(unknown.json()["answer"], HELP)
 
     def test_private_requests_return_without_reading_catalogue(self):
         with patch.object(self.widget, "current_store") as read:
