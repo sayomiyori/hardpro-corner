@@ -116,13 +116,15 @@ def rub(cents):
     return f"{value},{kopecks:02d} ₽" if kopecks else f"{value} ₽"
 
 
-def link(row, exact=False):
+def link(row, exact=False, city=None):
     label = row["товар"] + (f" · {row['вариант']}" if exact else "")
     href = "/shop/product?id=" + row["код"][1:]
     if exact and row["id"]:
         href += "&sku=" + row["id"]
     photo = (row.get("photo") if exact else "") or row.get("product_photo", "")
     result = {"label":label, "href":href, "title":row["товар"]}
+    if city:
+        result["city"] = city
     if exact and row["id"]:
         result["variant"] = row["вариант"]
     if photo:
@@ -294,7 +296,7 @@ class ShopDialog:
         if missing:
             lines.append("Не нашёл: " + ", ".join(missing) + ".")
             lines.append("Полный комплект сейчас недоступен. Наличие недостающих позиций можно уточнить у магазина.")
-        cards = [dict(link(row, exact), price=rub(row["price_cents"]) if exact else "от " + rub(row["price_cents"]))
+        cards = [dict(link(row, exact, self.city), price=rub(row["price_cents"]) if exact else "от " + rub(row["price_cents"]))
                  for _,row,exact in ranked]
         self.display = "\n".join(display + lines[summary_start:])
         return "\n".join(lines), cards + ([MANAGER_LINK] if missing else [])
@@ -311,7 +313,7 @@ class ShopDialog:
         lines, links = [title], []
         for number, (exact, row) in enumerate(part,self.page+1):
             label = row["товар"] + (" · " + row["вариант"] if exact and row["id"] else "")
-            card = dict(link(row,exact), label=f"№{number} {label}", position=number)
+            card = dict(link(row, exact, self.city), label=f"№{number} {label}", position=number)
             links.append(card)
             variants = ([row] if exact else
                         [self.cat.rows[i] for i in self.cat.by_product[row["код"]]
@@ -344,8 +346,8 @@ class ShopDialog:
         self.selected = [row["код"]]
         self.filters = attributes(normalize(row["вариант"])) if row["id"] else {}
         if not row["id"]:
-            return f'{row["товар"]}. У карточки пока нет активных вариантов для покупки.', [link(row)]
-        card = link(row, True)
+            return f'{row["товар"]}. У карточки пока нет активных вариантов для покупки.', [link(row, city=self.city)]
+        card = link(row, True, self.city)
         lines = [f'{row["товар"]} · {row["вариант"]}']
         if row["price_cents"]:
             card["price"] = rub(row["price_cents"])
@@ -402,7 +404,7 @@ class ShopDialog:
                     text += f" Магазин — {self.city}."
                 if choices:
                     text += f" Варианты на сайте — {choices}."
-                return text, [link(product), MANAGER_LINK]
+                return text, [link(product, city=self.city), MANAGER_LINK]
             return "Для этих моделей нужный размер или цвет пока не нашёл.", [MANAGER_LINK]
         self.selected = list(dict.fromkeys(row["код"] for row in rows))
         if len(rows)==1:

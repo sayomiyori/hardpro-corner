@@ -41,6 +41,7 @@ class AssistantTest(unittest.TestCase):
     def test_choose_variant_and_city_with_link(self):
         result,links = ShopDialog(self.catalog).answer(["Какие есть перчатки Demo?", "А 12 oz?", "А в Симферополе?"])
         self.assertEqual(links[0]["href"],"/shop/product?id=10&sku=1")
+        self.assertEqual(links[0]["city"], "Симферополь")
         self.assertIn("Симферополь — доступно 1",result)
         self.assertNotIn("Севастополь —",result)
         self.assertIn("2 500 ₽",result)
