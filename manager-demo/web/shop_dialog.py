@@ -18,7 +18,7 @@ HEALTH_PATTERN = re.compile(
     r"беременн\w*|поврежден\w*|повредил\w*|сломал\w*|инсульт\w*|астм\w*|эпилепси\w*|симптом\w*|порва\w*|лечени\w*|лечит\w*|врач\w*|связк\w*)"
 )
 PERSONAL = re.compile(
-    r"@|(?:\+?\d[\d .()\-]{8,}\d)|\b(?:снилс|паспорт\w*|cvv|cvc|мой телефон|мой адрес|меня зовут|"
+    r"@|(?:\+?\d[\d .()\-]{8,}\d)|\b(?:снилс|паспорт\w*|cvv|cvc|мой телефон|мой адрес|меня зовут|мое фио|"
     r"мой заказ|номер (?:заказа|карты)|адрес доставки|позвоните мне|перезвоните|моя почта)\b"
 )
 INSTRUCTIONS = re.compile(
@@ -129,8 +129,9 @@ def budget_limit(phrase):
 
 
 def attributes(text):
-    sizes = [m[0] for m in SIZES.finditer(OZ_SIZE.sub(" ", text))]
-    sizes.extend(EXACT_ATTRIBUTES.findall(text))
+    size_text = OZ_SIZE.sub(" ", text)
+    sizes = [m[0] for m in SIZES.finditer(size_text)]
+    sizes.extend(EXACT_ATTRIBUTES.findall(size_text))
     colors = [COLOR_EXCEPTIONS.get(stem, stem + "ый") for stem in COLORS.findall(text)]
     return {kind: " ".join(values) for kind, values in {
         "color": colors, "weight": OZ_SIZE.findall(text), "size": sizes,
@@ -402,8 +403,8 @@ class ShopDialog:
             label = quantity_match[1]
             quantity = int(label) if label.isdigit() else {"одну":1,"две":2,"два":2,"три":3,"четыре":4,"пять":5}[label]
         budget = budget_limit(query)
-        term_phrase = PART_OF_STORE.sub(" ", EXACT_ATTRIBUTES.sub(" ", QUANTITY.sub(" ", BUDGET.sub(" ", query))))
-        term_phrase = COLORS.sub(" ", SIZES.sub(" ", term_phrase))
+        term_phrase = PART_OF_STORE.sub(" ", QUANTITY.sub(" ", BUDGET.sub(" ", query)))
+        term_phrase = COLORS.sub(" ", EXACT_ATTRIBUTES.sub(" ", SIZES.sub(" ", term_phrase)))
         categories = [re.compile(pattern) for pattern in ITEMS.values() if re.search(pattern, query)]
         if LONG_SLEEVE.search(query):
             categories.append(LONG_SLEEVE)
