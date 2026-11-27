@@ -6,6 +6,12 @@
 !/README.md
 !/STATUS.md
 
+# Публикуемые компоненты LocalLLM
+!/local-llm/
+/local-llm/*
+!/local-llm/hp-status
+!/local-llm/README.md
+
 # LAN-обвязка: исходники доски, агента, шлюза и trace-прокси
 !/lan-hub/
 !/lan-hub/**

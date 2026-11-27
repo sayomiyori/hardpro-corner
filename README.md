@@ -6,6 +6,8 @@
 
 [Три RTX 3090 и Qwen3.8 Flash Next — диагностика, замеры и медиамодели](docs/three-3090-flash-next.md)
 
+[Инструменты LocalLLM для Linux и Open WebUI](local-llm/README.md)
+
 ## Что можно сделать
 
 | Задача | Компонент | Данные |

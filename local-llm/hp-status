@@ -1,0 +1,772 @@
+#!/usr/bin/env python3
+"""hp-status — live readings for the hard-pro-llm box.
+
+GPU metrics come straight from NVML over ctypes: no nvidia-smi fork in the
+hot path, no 1.5 s timeout race under load, every card in the machine.
+Card labels are built from the PCI subsystem vendor plus the bus number, so
+two cards of the same brand stay two separate readings instead of one label
+overwriting the other. Cards that vanish from NVML (Xid 79) are kept in a
+small state file and shown as missing instead of quietly dropping out.
+
+CPU / NVMe temperatures come from hwmon and are enumerated, not hardcoded.
+
+  hp-status              hardware dashboard sized to the terminal
+  hp-status --full       expanded cards even in a short terminal
+  hp-status --temperatures   one line for the tmux status bar
+  hp-status --gpus       per-card monitor, built for `watch`
+"""
+
+from __future__ import annotations
+
+from collections import Counter
+import ctypes
+import re
+import tempfile
+import textwrap
+import json
+import os
+import shutil
+import socket
+import subprocess
+import sys
+import time
+from pathlib import Path
+from typing import NamedTuple, Optional
+
+HWMON = Path('/sys/class/hwmon')
+PCI = Path('/sys/bus/pci/devices')
+STATE_DIR = Path(os.environ.get('XDG_CACHE_HOME') or Path.home() / '.cache') / 'hp-status'
+STATE = STATE_DIR / 'gpus.json'
+
+CACHE_TTL = 30.0          # seconds a cached reading may still be trusted
+MISSING_TTL = 3 * 86400   # keep a dropped card in the status line this long
+CHECKPOINT = 10.0         # how often the state file timestamp is refreshed
+
+VENDORS = {
+    '0x1043': 'ASUS',
+    '0x1569': 'Palit',
+    '0x1462': 'MSI',
+    '0x19da': 'ZOTAC',
+    '0x1458': 'Gigabyte',
+    '0x3842': 'EVGA',
+    '0x1b4c': 'PNY',
+    '0x196e': 'PNY',
+    '0x10de': 'NVIDIA',
+}
+
+THROTTLE_BITS = (
+    (0x0001, 'idle'),
+    (0x0002, 'app-clocks'),
+    (0x0004, 'power-cap'),
+    (0x0008, 'hw-slowdown'),
+    (0x0010, 'sync-boost'),
+    (0x0020, 'sw-thermal'),
+    (0x0040, 'hw-thermal'),
+    (0x0080, 'power-brake'),
+    (0x0100, 'display-clocks'),
+)
+
+NVML_TEMPERATURE_GPU = 0
+
+
+class Gpu(NamedTuple):
+    index: str
+    bus: str
+    vendor: str
+    label: str
+    name: str
+    temp: Optional[float]
+    util: Optional[float]
+    mem_used: Optional[int]
+    mem_total: Optional[int]
+    power: Optional[float]
+    fan: Optional[float]
+    pcie: str
+    throttle: tuple
+
+
+# --------------------------------------------------------------------------
+# formatting helpers
+# --------------------------------------------------------------------------
+
+color = (
+    sys.stdout.isatty()
+    and os.environ.get('TERM') != 'dumb'
+    and 'NO_COLOR' not in os.environ
+)
+
+
+
+
+def fmt_temp(value: Optional[float]) -> str:
+    return '—' if value is None else f'{value:.0f}°C'
+
+
+def fmt_watts(value: Optional[float]) -> str:
+    return '—' if value is None else f'{value:.1f} W'
+
+
+def fmt_pct(value: Optional[float]) -> str:
+    return '—' if value is None else f'{value:.0f}%'
+
+
+def unique(seen: dict, name: str) -> str:
+    count = seen.get(name, 0)
+    seen[name] = count + 1
+    return name if count == 0 else f'{name}{count + 1}'
+
+
+# --------------------------------------------------------------------------
+# hwmon: CPU and drives
+# --------------------------------------------------------------------------
+
+def read_temp_input(sensor: Path) -> Optional[float]:
+    for candidate in ('temp1_input', 'temp2_input', 'temp3_input'):
+        try:
+            return int((sensor / candidate).read_text()) / 1000
+        except (OSError, ValueError):
+            continue
+    return None
+
+
+def read_hwmon() -> dict:
+    """Temperatures for every device hwmon actually exposes right now."""
+    readings: dict[str, float] = {}
+    seen: dict[str, int] = {}
+    for sensor in sorted(HWMON.glob('hwmon*')):
+        try:
+            driver = (sensor / 'name').read_text().strip()
+        except OSError:
+            continue
+        if driver == 'k10temp':
+            name = 'CPU'
+        elif driver == 'nvme':
+            try:
+                model = (sensor / 'device/model').read_text().strip()
+            except OSError:
+                model = ''
+            name = unique(seen, model.split()[0] if model.split() else 'nvme')
+        elif driver in ('coretemp', 'zenpower'):
+            name = 'CPU'
+        else:
+            continue
+        value = read_temp_input(sensor)
+        if value is not None:
+            readings[name] = value
+    return readings
+
+
+# --------------------------------------------------------------------------
+# NVML over ctypes
+# --------------------------------------------------------------------------
+
+class _PciInfo(ctypes.Structure):
+    _fields_ = [
+        ('bus_id_legacy', ctypes.c_char * 16),
+        ('domain', ctypes.c_uint),
+        ('bus', ctypes.c_uint),
+        ('device', ctypes.c_uint),
+        ('pci_device_id', ctypes.c_uint),
+        ('pci_subsystem_id', ctypes.c_uint),
+        ('bus_id', ctypes.c_char * 32),
+    ]
+
+
+class _Util(ctypes.Structure):
+    _fields_ = [('gpu', ctypes.c_uint), ('memory', ctypes.c_uint)]
+
+
+class _Mem(ctypes.Structure):
+    _fields_ = [
+        ('total', ctypes.c_ulonglong),
+        ('free', ctypes.c_ulonglong),
+        ('used', ctypes.c_ulonglong),
+    ]
+
+
+def load_nvml():
+    if os.environ.get('HP_STATUS_NO_NVML'):
+        return None
+    try:
+        lib = ctypes.CDLL('libnvidia-ml.so.1')
+    except OSError:
+        return None
+    try:
+        if lib.nvmlInit_v2() != 0:
+            return None
+    except AttributeError:
+        return None
+    return lib
+
+
+def _uint_call(fn, handle, *args) -> Optional[float]:
+    value = ctypes.c_uint()
+    if fn(handle, *args, ctypes.byref(value)) != 0:
+        return None
+    return float(value.value)
+
+
+def _bus_of(info: _PciInfo) -> str:
+    legacy = info.bus_id_legacy.decode(errors='replace')
+    parts = legacy.split(':')
+    if len(parts) == 3:
+        return ':'.join(parts[1:])
+    full = info.bus_id.decode(errors='replace').split(':')
+    return ':'.join(full[1:]) if len(full) == 3 else legacy
+
+
+def _vendor_of(bus: str) -> str:
+    # NVML reports the bus in upper case, sysfs paths are lower case.
+    try:
+        raw = (PCI / f'0000:{bus.lower()}' / 'subsystem_vendor').read_text().strip()
+    except OSError:
+        return ''
+    return VENDORS.get(raw.lower(), raw or '')
+
+
+def read_gpus_nvml(lib) -> Optional[list]:
+    count = ctypes.c_uint()
+    if lib.nvmlDeviceGetCount_v2(ctypes.byref(count)) != 0:
+        return None
+    cards = []
+    for index in range(count.value):
+        handle = ctypes.c_void_p()
+        if lib.nvmlDeviceGetHandleByIndex_v2(ctypes.c_uint(index), ctypes.byref(handle)) != 0:
+            continue
+
+        info = _PciInfo()
+        bus = ''
+        if lib.nvmlDeviceGetPciInfo_v3(handle, ctypes.byref(info)) == 0:
+            bus = _bus_of(info)
+
+        name_buf = ctypes.create_string_buffer(96)
+        name = ''
+        if lib.nvmlDeviceGetName(handle, name_buf, ctypes.c_size_t(96)) == 0:
+            name = name_buf.value.decode(errors='replace')
+
+        temp = _uint_call(lib.nvmlDeviceGetTemperature, handle, ctypes.c_uint(NVML_TEMPERATURE_GPU))
+
+        util = None
+        utilisation = _Util()
+        if lib.nvmlDeviceGetUtilizationRates(handle, ctypes.byref(utilisation)) == 0:
+            util = float(utilisation.gpu)
+
+        mem = _Mem()
+        used = total = None
+        if lib.nvmlDeviceGetMemoryInfo(handle, ctypes.byref(mem)) == 0:
+            used, total = mem.used >> 20, mem.total >> 20
+
+        power = _uint_call(lib.nvmlDeviceGetPowerUsage, handle)
+        if power is not None:
+            power /= 1000
+
+        fan = _uint_call(lib.nvmlDeviceGetFanSpeed, handle)
+
+        gen = _uint_call(lib.nvmlDeviceGetCurrPcieLinkGeneration, handle)
+        width = _uint_call(lib.nvmlDeviceGetCurrPcieLinkWidth, handle)
+        pcie = f'{gen:.0f}.0 x{width:.0f}' if gen and width else '—'
+
+        flags = ctypes.c_ulonglong()
+        throttle = ()
+        if lib.nvmlDeviceGetCurrentClocksThrottleReasons(handle, ctypes.byref(flags)) == 0:
+            throttle = tuple(text for bit, text in THROTTLE_BITS if flags.value & bit)
+
+        cards.append(Gpu(
+            index=str(index),
+            bus=bus,
+            vendor=_vendor_of(bus),
+            label='',
+            name=name,
+            temp=temp,
+            util=util,
+            mem_used=used,
+            mem_total=total,
+            power=power,
+            fan=fan,
+            pcie=pcie,
+            throttle=throttle,
+        ))
+    return cards
+
+
+# --------------------------------------------------------------------------
+# nvidia-smi fallback (same shape, fewer fields)
+# --------------------------------------------------------------------------
+
+SMI_QUERY = (
+    'index,pci.bus_id,name,temperature.gpu,utilization.gpu,'
+    'memory.used,memory.total,power.draw,fan.speed,'
+    'pcie.link.gen.current,pcie.link.width.current'
+)
+
+
+def read_gpus_smi() -> Optional[list]:
+    try:
+        output = subprocess.run(
+            ['nvidia-smi', '--query-gpu=' + SMI_QUERY, '--format=csv,noheader,nounits'],
+            capture_output=True, text=True, timeout=4, check=True,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+    cards = []
+    for line in output.splitlines():
+        fields = [part.strip() for part in line.split(',')]
+        if len(fields) != len(SMI_QUERY.split(',')):
+            continue
+        index, bus_id, name, temp, util, used, total, power, fan, gen, width = fields
+        short = bus_id.split(':')[-2:] if bus_id.count(':') >= 2 else [bus_id]
+        bus = ':'.join(short)
+
+        def number(raw):
+            try:
+                return float(raw)
+            except ValueError:
+                return None
+
+        gen_v, width_v = number(gen), number(width)
+        cards.append(Gpu(
+            index=index,
+            bus=bus,
+            vendor=_vendor_of(bus),
+            label='',
+            name=name,
+            temp=number(temp),
+            util=number(util),
+            mem_used=int(number(used)) if number(used) is not None else None,
+            mem_total=int(number(total)) if number(total) is not None else None,
+            power=number(power),
+            fan=number(fan),
+            pcie=f'{gen_v:.0f}.0 x{width_v:.0f}' if gen_v and width_v else '—',
+            throttle=(),
+        ))
+    return cards
+
+
+# --------------------------------------------------------------------------
+# state: dropped cards + last good readings
+# --------------------------------------------------------------------------
+
+def load_state() -> dict:
+    try:
+        return json.loads(STATE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(state: dict) -> None:
+    try:
+        text = json.dumps(state, ensure_ascii=False, sort_keys=True)
+        if STATE.exists() and STATE.read_text() == text:
+            return
+        STATE.parent.mkdir(parents=True, exist_ok=True)
+        temp = STATE.with_suffix('.tmp')
+        temp.write_text(text)
+        os.replace(temp, STATE)
+    except OSError:
+        pass
+
+
+def remember(cards: list, state: dict) -> dict:
+    """Refresh the timestamp of every live card, prune long-gone ones.
+
+    The timestamp is only moved every CHECKPOINT seconds so the status bar
+    does not rewrite the file on every redraw.
+    """
+    now = time.time()
+    known = state.get('cards', {})
+    for card in cards:
+        if not card.bus:
+            continue
+        previous = known.get(card.bus, {}).get('ts', 0)
+        checkpoint = previous if previous and now - previous < CHECKPOINT else now
+        known[card.bus] = {
+            'label': card.label,
+            'vendor': card.vendor or card.label,
+            'temp': card.temp,
+            'ts': checkpoint,
+        }
+    live = {card.bus for card in cards}
+    for bus in list(known):
+        if bus not in live and now - known[bus].get('ts', 0) > MISSING_TTL:
+            del known[bus]
+    return {'cards': known}
+
+
+def missing_cards(cards: list, state: dict) -> list:
+    live = {card.bus for card in cards}
+    now = time.time()
+    out = []
+    for bus, entry in sorted(state.get('cards', {}).items()):
+        if bus in live or bus == '':
+            continue
+        if now - entry.get('ts', 0) > MISSING_TTL:
+            continue
+        out.append((bus, entry.get('label') or entry.get('vendor') or 'GPU'))
+    return out
+
+
+def cached_readings(state: dict) -> list:
+    now = time.time()
+    out = []
+    for bus, entry in sorted(state.get('cards', {}).items()):
+        age = now - entry.get('ts', 0)
+        if age > CACHE_TTL:
+            continue
+        out.append((entry.get('label') or 'GPU', entry.get('temp'), age))
+    return out
+
+
+# --------------------------------------------------------------------------
+# read it all
+# --------------------------------------------------------------------------
+
+def label_cards(cards: list) -> list:
+    counts: dict[str, int] = {}
+    for card in cards:
+        counts[card.vendor] = counts.get(card.vendor, 0) + 1
+
+    labelled = []
+    for card in cards:
+        vendor = card.vendor or f'GPU{card.index}'
+        short_bus = card.bus.split(':')[0].lower() if card.bus else card.index
+        name = vendor if counts.get(card.vendor, 0) <= 1 else f'{vendor}/{short_bus}'
+        labelled.append(card._replace(label=name, vendor=vendor))
+    return labelled
+
+
+def read_gpus() -> tuple:
+    """Returns (cards, read_ok). read_ok is False when nothing could be asked."""
+    lib = load_nvml()
+    cards = read_gpus_nvml(lib) if lib is not None else None
+    if cards is None:
+        cards = read_gpus_smi()
+    if cards is None:
+        return [], False
+    return label_cards(cards), True
+
+
+def temperature_line() -> str:
+    state = load_state()
+    cards, read_ok = read_gpus()
+    hwmon = read_hwmon()
+    cpu = hwmon.pop('CPU', None)
+
+    parts = [f'CPU {fmt_temp(cpu)}']
+    for card in cards:
+        parts.append(f'{card.label} {fmt_temp(card.temp)}')
+    if not read_ok:
+        # No source answered at all: reuse the last sample, marked stale.
+        for name, temp, age in cached_readings(state):
+            mark = '~' if age < 10 else f'~{age:.0f}s'
+            parts.append(f'{name} {fmt_temp(temp)}{mark}')
+    if read_ok:
+        for _bus, name in missing_cards(cards, state):
+            parts.append(f'{name} —')
+    for name, temp in hwmon.items():
+        parts.append(f'{name} {fmt_temp(temp)}')
+
+    if read_ok:
+        save_state(remember(cards, state))
+    return '  '.join(parts)
+
+
+# --------------------------------------------------------------------------
+# views
+# --------------------------------------------------------------------------
+
+def gpu_view() -> str:
+    state = load_state()
+    cards, read_ok = read_gpus()
+    lines = [
+        f'GPU MONITOR   {socket.gethostname()}   {time.strftime("%d %b %Y  %H:%M:%S %Z")}',
+        '',
+    ]
+    for card in cards:
+        lines.append(
+            f'GPU {card.index}  {card.label:<10} {card.name}  [{card.bus}]'
+        )
+        lines.append(
+            f'        temp {fmt_temp(card.temp):>5}   util {fmt_pct(card.util):>4}   '
+            f'{card.mem_used if card.mem_used is not None else "—"}/'
+            f'{card.mem_total if card.mem_total is not None else "—"} MiB   '
+            f'{fmt_watts(card.power):>8}   fan {fmt_pct(card.fan):>4}   '
+            f'PCIe {card.pcie}'
+        )
+        if card.throttle:
+            lines.append('        throttle: ' + ', '.join(card.throttle))
+        lines.append('')
+    if not read_ok:
+        cached = cached_readings(state)
+        if cached:
+            lines.append('NVML and nvidia-smi unavailable, cache:')
+            for name, temp, age in cached:
+                lines.append(f'  {name:<10} {fmt_temp(temp)}   {age:.0f}s old')
+        else:
+            lines.append('NVML and nvidia-smi unavailable, no readings')
+        lines.append('')
+    elif not cards:
+        lines.append('NVML reports no GPUs')
+        lines.append('')
+    if read_ok:
+        for bus, name in missing_cards(cards, state):
+            lines.append(f'{name:<12} NOT PRESENT  [{bus}] — dropped off the PCIe bus')
+        save_state(remember(cards, state))
+    return '\n'.join(lines)
+
+
+
+
+def sample_cpu() -> tuple:
+    fields = list(map(int, Path('/proc/stat').read_text().splitlines()[0].split()[1:9]))
+    return sum(fields), fields[3] + fields[4]
+
+
+def read(path, default='—'):
+    try:
+        return Path(path).read_text().strip() or default
+    except OSError:
+        return default
+
+
+def command(*args, timeout=1):
+    try:
+        result = subprocess.run(args, capture_output=True, text=True, timeout=timeout,
+                                env={**os.environ, 'LC_ALL': 'C'})
+        return result.stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ''
+
+
+class Card(NamedTuple):
+    title: str
+    accent: int
+    lines: list[str]
+
+
+def paint(text, style):
+    return f'\033[{style}m{text}\033[0m' if color else text
+
+
+def grid(cards, width, compact=False):
+    columns = 2 if width >= 76 else 1
+    inner = (width - 2 * (columns - 1)) // columns - 4
+    for start in range(0, len(cards), columns):
+        boxes = []
+        for card in cards[start:start + columns]:
+            title = ' ' + card.title[:inner - 2] + ' '
+            style = f'38;5;{card.accent}'
+            top = paint('╭─', style) + paint(title, '1;' + style) + paint('─' * (inner + 1 - len(title)) + '╮', style)
+            lines = [part for line in card.lines for part in textwrap.wrap(line, inner) or ['']]
+            boxes.append((top, lines, style))
+        print('  '.join(top for top, _, _ in boxes))
+        for i in range(max(len(lines) for _, lines, _ in boxes)):
+            cells = []
+            for _, lines, style in boxes:
+                value = lines[i] if i < len(lines) else ''
+                padded = re.sub(r'━+', lambda m: paint(m[0], '1;' + style), value.ljust(inner))
+                cells.append(paint('│', style) + ' ' + padded + ' ' + paint('│', style))
+            print('  '.join(cells))
+        if not compact:
+            print('  '.join(paint('╰' + '─' * (inner + 2) + '╯', style) for _, _, style in boxes))
+
+
+def meter(name, percent):
+    if percent is None:
+        return name + '  —'
+    fill = round(max(0, min(percent, 100)) / 10)
+    return name + '  ' + '━' * fill + '┄' * (10 - fill) + f'  {percent:.0f}%'
+
+
+def board_sensors():
+    # An SDR scan takes about a second. Share one sample across watch refreshes.
+    cache = STATE_DIR / 'board.json'
+    try:
+        age = time.time() - cache.stat().st_mtime
+        if 0 <= age < 30:
+            return json.loads(cache.read_text())
+    except (ValueError, OSError):
+        pass
+    values = {}
+    for line in command('sudo', '-n', '/usr/bin/ipmitool', 'sdr', 'elist', timeout=3).splitlines():
+        fields = [s.strip() for s in line.split('|')]
+        if len(fields) == 5 and fields[4] and fields[4] != 'No Reading':
+            values[fields[0]] = fields[4].replace(' degrees C', '°C').replace(' Volts', ' В')
+    try:
+        cache.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile(mode='w', dir=cache.parent, delete=False) as tmp:
+            json.dump(values, tmp)
+        os.replace(tmp.name, cache)
+    except OSError:
+        pass
+    return values
+
+
+def processor(compact):
+    info = Path('/proc/cpuinfo').read_text()
+    model = re.search(r'^model name\s*: (.+)', info, re.M)
+    cores = re.search(r'^cpu cores\s*: (\d+)', info, re.M)
+    sockets = set(re.findall(r'^physical id\s*: (\d+)', info, re.M))
+    count = int(cores[1]) * len(sockets) if cores and sockets else '—'
+    a, idle_a = sample_cpu()
+    time.sleep(0.12)
+    b, idle_b = sample_cpu()
+    busy = 100 * (1 - (idle_b - idle_a) / max(1, b - a))
+    name = re.sub(r' \d+-Core Processor$', '', model[1]) if model else 'CPU'
+    usage = meter('CPU', busy) + '   ' + fmt_temp(read_hwmon().get('CPU'))
+    if compact:
+        return Card('Процессор', 81, [f'{name} · {count}C/{os.cpu_count()}T', usage])
+    return Card('Процессор', 81, [
+        name,
+        f'{count} ядер · {os.cpu_count()} потока',
+        usage,
+        'Load 1/5/15 мин  ' + ' / '.join(f'{v:.2f}' for v in os.getloadavg())
+    ])
+
+
+def memory(board, compact):
+    mem = {line.split(':')[0]: int(line.split()[1]) for line in Path('/proc/meminfo').read_text().splitlines()}
+    total, used = mem['MemTotal'], mem['MemTotal'] - mem['MemAvailable']
+    props = dict(line.split('=', 1) for line in command(
+        'udevadm', 'info', '-q', 'property', '-p', '/sys/devices/virtual/dmi/id').splitlines() if '=' in line)
+    modules = Counter()
+    for key, value in props.items():
+        if re.fullmatch(r'MEMORY_DEVICE_\d+_SIZE', key) and value.isdigit() and int(value):
+            prefix = key[:-4]
+            modules[(int(value) / 2**30, props.get(prefix + 'TYPE', ''), props.get(prefix + 'CONFIGURED_SPEED_MTS', '—'))] += 1
+    lines = [f'{n} × {size:g} GiB {kind} · {speed} MT/s' for (size, kind, speed), n in modules.items()]
+    lines.append(meter('RAM', 100 * used / total) + f'  {used / 2**20:.1f}/{total / 2**20:.0f} GiB')
+    if compact:
+        return Card('Оперативная память', 81, lines)
+    ecc = [f'CE {read(mc / "ce_count")} · UE {read(mc / "ue_count")}' for mc in sorted(Path('/sys/devices/system/edac/mc').glob('mc[0-9]*'))]
+    lines.append(f'Swap {(mem["SwapTotal"] - mem["SwapFree"]) / 2**20:.1f} GiB · ECC ' + (' / '.join(ecc) or '—'))
+    if 'P1_DIMMA~D Temp' in board or 'P1_DIMME~H Temp' in board:
+        lines.append('A–D ' + board.get('P1_DIMMA~D Temp', '—') + '    E–H ' + board.get('P1_DIMME~H Temp', '—'))
+    return Card('Оперативная память', 81, lines)
+
+
+def graphics(compact):
+    state = load_state()
+    cards, ok = read_gpus()
+    panels = []
+    for gpu in cards:
+        lines = [f'{gpu.vendor} {gpu.name.removeprefix("NVIDIA GeForce ")} · {gpu.bus}',
+                 meter('GPU', gpu.util) + '   ' + fmt_temp(gpu.temp)]
+        if gpu.mem_used is not None and gpu.mem_total:
+            lines.append(meter('VRAM', 100 * gpu.mem_used / gpu.mem_total)
+                         + f'  {gpu.mem_used / 1024:.1f}/{gpu.mem_total / 1024:g} GiB')
+        else:
+            lines.append('VRAM  —')
+        lines.append(f'{fmt_watts(gpu.power)} · вент. {fmt_pct(gpu.fan)} · PCIe {gpu.pcie}')
+        title = 'GPU ' + gpu.index
+        if compact:
+            title += ' · ' + lines.pop(0)
+            lines[0] += ' · ' + fmt_watts(gpu.power)
+            lines.pop()
+        thermal = any(reason in ('sw-thermal', 'hw-thermal') for reason in gpu.throttle)
+        if thermal:
+            lines.append('Температура ограничивает частоту')
+        panels.append(Card(title, 203 if thermal else 141, lines))
+    if ok:
+        panels.extend(Card('GPU ' + name, 203, ['Нет на шине PCIe · ' + bus]) for bus, name in missing_cards(cards, state))
+        save_state(remember(cards, state))
+    if not panels:
+        lines = ['Карты не обнаружены' if ok else 'Телеметрия GPU недоступна']
+        if not ok:
+            lines += [f'Кэш {name}  {fmt_temp(temp)} · {age:.0f} с назад' for name, temp, age in cached_readings(state)]
+        panels.append(Card('GPU', 203, lines))
+    return panels
+
+
+def storage(compact):
+    panels = []
+    for mount, title in [('/', 'Системный SSD'), ('/srv/models', 'SSD моделей')]:
+        if not os.path.ismount(mount):
+            panels.append(Card(title, 203, [mount + ' не смонтирован']))
+            continue
+        dev = os.stat(mount).st_dev
+        block = Path(f'/sys/dev/block/{os.major(dev)}:{os.minor(dev)}').resolve()
+        disk = block.parent if (block / 'partition').exists() else block
+        model = read(disk / 'device/model', disk.name)
+        sensor = next((disk / 'device').glob('hwmon*/temp1_input'), None)
+        raw = read(sensor) if sensor else ''
+        temp = fmt_temp(int(raw) / 1000) if raw.lstrip('-').isdigit() else '—'
+        total, used, free = shutil.disk_usage(mount)
+        if compact:
+            panels.append(Card(title + ' · ' + mount, 114, [model + ' · ' + temp,
+                               meter('SSD', 100 * used / total) + f'  {free / 2**30:.0f} GiB своб.']))
+            continue
+        panels.append(Card(title, 114, [model + ' · ' + temp, f'{mount}  ·  {total / 2**30:.0f} GiB',
+                           meter('Занято', 100 * used / total),
+                           f'{used / 2**30:.1f} GiB · свободно {free / 2**30:.0f} GiB']))
+    if not compact:
+        for disk in sorted(Path('/sys/block').glob('*')):
+            if read(disk / 'removable') == '1' and (disk / 'device/model').exists():
+                sectors = read(disk / 'size')
+                if sectors.isdigit() and int(sectors):
+                    vendor = read(disk / 'device/vendor', '')
+                    panels.append(Card('Съёмный накопитель', 114, [
+                        (vendor + ' ' + read(disk / 'device/model')).strip(),
+                        f'/dev/{disk.name} · {int(sectors) * 512 / 2**30:.1f} GiB']))
+    return panels
+
+
+def motherboard(values, compact):
+    dmi = Path('/sys/class/dmi/id')
+    lines = [read(dmi / 'board_vendor') + ' ' + read(dmi / 'board_name') + ' · BIOS ' + read(dmi / 'bios_version')]
+    if values:
+        lines += ['Плата ' + values.get('System Temp', '—') + ' · VRM CPU ' + values.get('CPU_VRM Temp', '—'),
+                  '  '.join(k + ' ' + v for k, v in values.items() if k.startswith('FAN')) or 'Вентиляторы  —',
+                  '12/5/3.3 В  ' + ' · '.join(values.get(k, '—') for k in ('12V', '5VCC', '3.3VCC'))]
+    else:
+        lines.append('Датчики IPMI недоступны')
+    if compact and values:
+        return Card(read(dmi / 'board_vendor') + ' ' + read(dmi / 'board_name'), 179, lines[1:3])
+    return Card('Плата и питание', 179, lines)
+
+
+def network(compact):
+    lines = []
+    for port in sorted(Path('/sys/class/net').glob('*')):
+        if (port / 'device/subsystem').resolve().name != 'pci':
+            continue
+        status = read(port / 'operstate')
+        if status == 'up':
+            addr = command('ip', '-4', '-o', 'addr', 'show', 'dev', port.name).split()
+            lines.append(f'{port.name}  {read(port / "speed")} Мбит/с' + (' · ' + addr[3].split('/')[0] if len(addr) > 3 else ''))
+        elif not compact:
+            lines.append(f'{port.name}  {status}')
+    service = command('systemctl', '--user', 'is-active', 'hardpro-vllm.service')
+    lines.append(f'vLLM  {service or "—"} · 127.0.0.1:8000')
+    return Card('Сеть и сервис', 179, lines)
+
+
+def report() -> None:
+    size = shutil.get_terminal_size((96, 32))
+    width = max(16, min(116, size.columns - 1))
+    compact = size.lines < 34 and '--full' not in sys.argv
+    board = board_sensors()
+    days, hours = divmod(int(float(read('/proc/uptime').split()[0])) // 3600, 24)
+    header = f'{socket.gethostname()}  ·  ' + time.strftime('%d.%m.%Y %H:%M %Z') + f'  ·  uptime {days}д {hours}ч'
+    print(paint(textwrap.fill(header, width), '1;97'))
+    grid([processor(compact), memory(board, compact)], width, compact)
+    grid(graphics(compact), width, compact)
+    grid(storage(compact), width, compact)
+    grid([motherboard(board, compact), network(compact)], width, compact)
+    print(paint(textwrap.fill('hp-status --full · temps · gpu · btop · tmux', width), '38;5;109'))
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    if '--temperatures' in args or '-t' in args:
+        print(temperature_line())
+        return 0
+    if '--gpus' in args or '--gpu' in args or '-g' in args:
+        print(gpu_view())
+        return 0
+    report()
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())
