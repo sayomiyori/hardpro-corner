@@ -725,22 +725,6 @@ def motherboard(values, compact):
     return Card('Плата и питание', 179, lines)
 
 
-def network(compact):
-    lines = []
-    for port in sorted(Path('/sys/class/net').glob('*')):
-        if (port / 'device/subsystem').resolve().name != 'pci':
-            continue
-        status = read(port / 'operstate')
-        if status == 'up':
-            addr = command('ip', '-4', '-o', 'addr', 'show', 'dev', port.name).split()
-            lines.append(f'{port.name}  {read(port / "speed")} Мбит/с' + (' · ' + addr[3].split('/')[0] if len(addr) > 3 else ''))
-        elif not compact:
-            lines.append(f'{port.name}  {status}')
-    service = command('systemctl', '--user', 'is-active', 'hardpro-vllm.service')
-    lines.append(f'vLLM  {service or "—"} · 127.0.0.1:8000')
-    return Card('Сеть и сервис', 179, lines)
-
-
 def report() -> None:
     size = shutil.get_terminal_size((96, 32))
     width = max(16, min(116, size.columns - 1))
@@ -752,7 +736,7 @@ def report() -> None:
     grid([processor(compact), memory(board, compact)], width, compact)
     grid(graphics(compact), width, compact)
     grid(storage(compact), width, compact)
-    grid([motherboard(board, compact), network(compact)], width, compact)
+    grid([motherboard(board, compact)], width, compact)
     print(paint(textwrap.fill('hp-status --full · temps · gpu · btop · tmux', width), '38;5;109'))
 
 
