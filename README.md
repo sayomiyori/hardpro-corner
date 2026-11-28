@@ -4,6 +4,8 @@
 
 [Текущий статус](STATUS.md) · [Документация](docs/README.md) · [Развёртывание](docs/server-setup.md) · [HARD-PRO Hub](hardpro-hub/README.md)
 
+[Три RTX 3090 и Qwen3.8 Flash Next — диагностика, замеры и медиамодели](docs/three-3090-flash-next.md)
+
 ## Что можно сделать
 
 | Задача | Компонент | Данные |
