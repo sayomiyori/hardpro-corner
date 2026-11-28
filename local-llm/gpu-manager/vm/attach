@@ -1,0 +1,43 @@
+#!/bin/bash
+set -eu
+cd "$(dirname "$0")"
+source ./config
+[[ ! -f qemu.pid ]]
+for bus in "${buses[@]}"; do
+  pci=/sys/bus/pci/devices/0000:$bus:00.0
+  members=("$pci"/iommu_group/devices/*)
+  [[ -e "$pci/iommu_group/devices/0000:$bus:00.1" && ${#members[@]} == 2 && "$(basename "$(readlink "$pci/driver")")" == nvidia ]]
+  [[ "$(cat "$pci/driver_override")" == '(null)' ]]
+done
+sudo -n modprobe vfio-pci
+if (( ${#display_units[@]} )); then sudo -n systemctl stop "${display_units[@]}"; fi
+for bus in "${buses[@]}"; do
+  minor=$(awk '/Device Minor:/ {print $3}' /proc/driver/nvidia/gpus/0000:$bus:00.0/information)
+  [[ "$minor" =~ ^[0-9]+$ ]]
+  devices=("/dev/nvidia$minor")
+  [[ -c "${devices[0]}" ]]
+  for node in /dev/dri/by-path/pci-0000:$bus:00.0-{card,render} /dev/snd/by-path/pci-0000:$bus:00.1; do
+    if [[ -e "$node" ]]; then devices+=("$node"); fi
+  done
+  # fuser returns 1 when idle. sudo failure or an inaccessible device must not count as idle.
+  rc=0
+  result=$(sudo -n fuser "${devices[@]}" 2>&1) || rc=$?
+  if [[ $rc != 1 || -n "$result" ]]; then
+    echo "Cannot confirm idle devices on bus $bus" >&2
+    exit 1
+  fi
+done
+for bus in "${buses[@]}"; do
+  for fn in 1 0; do
+    addr=0000:$bus:00.$fn
+    pci=/sys/bus/pci/devices/$addr
+    echo vfio-pci | sudo -n tee "$pci/driver_override" >/dev/null
+    echo "$addr" | sudo -n tee "$pci/driver/unbind" >/dev/null
+    echo "$addr" | sudo -n tee /sys/bus/pci/drivers_probe >/dev/null
+    [[ "$(basename "$(readlink "$pci/driver")")" == vfio-pci ]]
+  done
+  grp=$(basename "$(readlink "$pci/iommu_group")")
+  sudo -n udevadm settle
+  sudo -n setfacl -m "u:$(id -un):rw" "/dev/vfio/$grp"
+done
+./launch gpu "${1:?guest disk}"

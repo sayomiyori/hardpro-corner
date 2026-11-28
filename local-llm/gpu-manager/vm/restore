@@ -1,0 +1,48 @@
+#!/bin/bash
+set -eu
+cd "$(dirname "$0")"
+source ./config
+exec 9>restore.lock
+flock -x 9
+if [[ -f qemu.pid ]]; then
+  python3 - <<'PY'
+import socket
+with socket.socket(socket.AF_UNIX) as s:
+    s.connect("monitor.sock")
+    s.sendall(b"system_powerdown\n")
+PY
+  for ((i=0;i<60;i++)); do [[ -f qemu.pid ]] || break; sleep 1; done
+  if [[ -f qemu.pid ]]; then
+    python3 - <<'PY'
+import socket
+with socket.socket(socket.AF_UNIX) as s:
+    s.connect("monitor.sock")
+    s.sendall(b"quit\n")
+PY
+    sleep 3
+  fi
+  [[ ! -f qemu.pid ]]
+fi
+sleep 5
+for bus in "${buses[@]}"; do
+  for pair in 0:nvidia 1:snd_hda_intel; do
+    fn=${pair%:*}
+    drv=${pair#*:}
+    addr="0000:$bus:00.$fn"
+    pci="/sys/bus/pci/devices/$addr"
+    if [[ -L "$pci/driver" && "$(basename "$(readlink "$pci/driver")")" == vfio-pci ]]; then
+      echo "$addr" | sudo -n tee "$pci/driver/unbind" >/dev/null
+    fi
+    printf '\n' | sudo -n tee "$pci/driver_override" >/dev/null
+    if [[ ! -L "$pci/driver" ]]; then
+      sudo -n modprobe "$drv"
+      for attempt in 1 2 3; do
+        if echo "$addr" | sudo -n tee "/sys/bus/pci/drivers/$drv/bind" >/dev/null; then break; fi
+        sleep 3
+      done
+    fi
+    [[ "$(basename "$(readlink "$pci/driver")")" == "$drv" ]]
+  done
+done
+sudo -n udevadm settle
+nvidia-smi --query-gpu=index,pci.bus_id,uuid --format=csv

@@ -1,0 +1,22 @@
+#!/bin/bash
+set -eu
+cd "$(dirname "$0")"
+source ./config
+opts=()
+if [[ "${1:-}" == gpu ]]; then
+  for host in "${buses[@]}"; do
+    opts+=(-device "pcie-root-port,id=port$host,bus=pcie.0,chassis=$((16#$host)),slot=1" -device "vfio-pci,host=0000:$host:00.0,bus=port$host,addr=0.0,multifunction=on" -device "vfio-pci,host=0000:$host:00.1,bus=port$host,addr=0.1")
+  done
+fi
+net="user,id=n0,restrict=on,hostfwd=tcp:127.0.0.1:$ssh_port-:22"
+for port in "${ports[@]}"; do net+=",hostfwd=tcp:127.0.0.1:$port-:$port"; done
+exec sudo -n prlimit --memlock="$memlock_bytes:$memlock_bytes" -- \
+  setpriv --reuid="$(id -u)" --regid="$(getent group kvm | cut -d: -f3)" --init-groups --no-new-privs \
+  qemu-system-x86_64 -name inference -machine q35,accel=kvm -cpu host -smp "$vcpus" -m "${ram_gib}G" \
+  -nodefaults -display none -serial file:serial.log -monitor unix:monitor.sock,server=on,wait=off \
+  -pidfile qemu.pid -daemonize -no-reboot \
+  -drive "if=pflash,format=raw,unit=0,readonly=on,file=$ovmf_code" \
+  -drive if=pflash,format=raw,unit=1,file=vars.fd -fw_cfg name=opt/ovmf/X-PciMmio64Mb,string=262144 \
+  -drive "if=virtio,format=qcow2,file=${2:?guest disk}" -drive if=virtio,format=raw,readonly=on,file=seed.img \
+  -drive if=none,id=weights,format=raw,readonly=on,file=weights.sqfs -device virtio-blk-pci,drive=weights,serial=FLASHNEXT \
+  -netdev "$net" -device virtio-net-pci,netdev=n0,romfile= "${opts[@]}"

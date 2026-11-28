@@ -1,0 +1,21 @@
+#!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")"
+[[ -e owns-devices ]] || exit 0
+source ./config
+if [[ -f qemu.pid ]]; then
+  timeout 12 ./guest 'sync; sudo poweroff' </dev/null || true
+  for i in {1..40}; do [[ ! -e qemu.pid ]] && break; sleep 1; done
+fi
+./restore
+for bus in "${pm_buses[@]}"; do
+  for fn in 0 1; do
+    pci=/sys/bus/pci/devices/0000:$bus:00.$fn
+    sudo -n tee "$pci/d3cold_allowed" < "after-host-cold-$bus-$fn" >/dev/null
+    sudo -n tee "$pci/power/control" < "after-host-pm-$bus-$fn" >/dev/null
+  done
+done
+nvidia-smi --query-gpu=uuid --format=csv,noheader | cmp -s device-uuids -
+mapfile -t units < active-display-units
+if (( ${#units[@]} )); then sudo -n systemctl start "${units[@]}"; fi
+rm owns-devices

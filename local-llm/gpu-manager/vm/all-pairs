@@ -1,0 +1,8 @@
+#!/bin/bash
+set -u
+for pair in '0 1' '1 0' '0 2' '2 0' '1 2' '2 1'; do
+  echo "direction $pair"
+  rc=0; timeout 25 ./owner_verify --peer $pair || rc=$?
+  echo "status $rc"
+  [[ $rc == 0 ]] || exit "$rc"
+done

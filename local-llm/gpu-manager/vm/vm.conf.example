@@ -1,0 +1,12 @@
+# Trusted shell configuration read by the VM owner's scripts.
+ssh_port=19222
+guest_disk=guest.qcow2
+ovmf_code=/usr/share/OVMF/OVMF_CODE_4M.fd
+ram_gib=80
+vcpus=12
+# Includes guest RAM, GPU mappings and QEMU overhead. Set for the local host.
+memlock_bytes=171798691840
+# List system services that must release these GPUs. Previously active units are restored.
+display_units=(nvidia-persistenced.service)
+# Optional subset requiring D3cold disabled during passthrough. Use lowercase PCI bus numbers.
+pm_buses=()

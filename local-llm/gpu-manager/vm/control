@@ -1,0 +1,11 @@
+#!/bin/bash
+set -eu
+cd "$(dirname "$0")"
+case "$1" in
+  status) [[ $# == 1 ]] ;;
+  start|stop)
+    [[ "$2" =~ ^Qwen3\.8-Flash-Next-(16|64|128)K-3GPU-NCCL$ ]]
+    if [[ "$1" == stop ]]; then [[ $# == 3 && "$3" =~ ^[1-9][0-9]*$ ]]; else [[ $# == 2 ]]; fi ;;
+  *) exit 2 ;;
+esac
+exec ./guest python3 .local/share/gpu-manager/guest-model.py "$@"

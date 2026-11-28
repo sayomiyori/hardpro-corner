@@ -1,0 +1,22 @@
+{
+  "manager_unit": "example-14b.service",
+  "comfy_unit": "example-image.service",
+  "coder_model": "example-27b",
+  "manager_model": "example-14b",
+  "manager_port": 9101,
+  "comfy_port": 9102,
+  "pci_slots": [
+    "01:00.0",
+    "02:00.0",
+    "03:00.0"
+  ],
+  "registry_entry": "~/example-hub/bin/hp-model.py",
+  "model_path": "~/example-models/flash-00001-of-00004.gguf",
+  "guest_model_path": "/srv/gpu-weights/flash-00001-of-00004.gguf",
+  "guest_binary": "/srv/gpu-weights/engine/llama-server",
+  "nccl_ports": [
+    19161,
+    19162,
+    19163
+  ]
+}

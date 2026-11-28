@@ -1,0 +1,12 @@
+[Unit]
+Description=Dedicated three-GPU guest for Flash Next NCCL profiles
+
+[Service]
+Type=forking
+PIDFile=%h/.local/share/gpu-manager/vm/qemu.pid
+WorkingDirectory=%h/.local/share/gpu-manager/vm
+ExecStart=%h/.local/share/gpu-manager/vm/boot-vm
+ExecStop=%h/.local/share/gpu-manager/vm/release-vm
+ExecStopPost=%h/.local/share/gpu-manager/vm/release-vm
+TimeoutStartSec=600
+TimeoutStopSec=225

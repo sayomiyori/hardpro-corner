@@ -1,0 +1,66 @@
+#!/bin/bash
+set -euo pipefail
+cd "$(dirname "$0")"
+boot=$(cat /proc/sys/kernel/random/boot_id)
+if [[ -f boot-id && $(cat boot-id) != "$boot" ]]; then
+  rm -f qemu.pid owns-devices
+fi
+echo "$boot" > boot-id
+source ./config
+[[ -f image-ready && ! -f qemu.pid && ! -f owns-devices ]]
+for port in "$ssh_port" "${ports[@]}"; do
+  listeners=$(ss -Hlnt "sport = :$port")
+  [[ -z "$listeners" ]]
+done
+nvidia-smi --query-gpu=uuid --format=csv,noheader > device-uuids
+[[ $(wc -l < device-uuids) == 3 ]]
+for bus in "${buses[@]}"; do
+  for fn in 0 1; do
+    pci=/sys/bus/pci/devices/0000:$bus:00.$fn
+    expected=nvidia
+    if [[ $fn == 1 ]]; then expected=snd_hda_intel; fi
+    [[ $(basename "$(readlink "$pci/driver")") == "$expected" ]]
+    [[ -L "$pci/driver" && $(cat "$pci/driver_override") == '(null)' ]]
+  done
+done
+for bus in "${pm_buses[@]}"; do
+  for fn in 0 1; do
+    pci=/sys/bus/pci/devices/0000:$bus:00.$fn
+    cat "$pci/d3cold_allowed" > "after-host-cold-$bus-$fn"
+    cat "$pci/power/control" > "after-host-pm-$bus-$fn"
+  done
+done
+actual=$(nvidia-smi --query-gpu=pci.bus_id --format=csv,noheader)
+expected=$(printf '00000000:%s:00.0\n' "${buses[@]}")
+[[ "${actual,,}" == "${expected,,}" ]]
+: > active-display-units
+for unit in "${display_units[@]}"; do
+  if systemctl is-active --quiet "$unit"; then echo "$unit" >> active-display-units; fi
+done
+# Freeze device and service selection until ExecStopPost has returned the same devices.
+cp -- "$HOME/.config/gpu-manager/vm.conf" active-vm.conf
+printf '%s\n' "$config_values" > active-devices
+touch owns-devices
+for bus in "${pm_buses[@]}"; do
+  for fn in 0 1; do
+    pci=/sys/bus/pci/devices/0000:$bus:00.$fn
+    echo on | sudo -n tee "$pci/power/control" >/dev/null
+    echo 0 | sudo -n tee "$pci/d3cold_allowed" >/dev/null
+  done
+done
+./attach "$guest_disk"
+for attempt in 1 2; do
+  for i in {1..100}; do ./guest true </dev/null 2>/dev/null && break; sleep 1; done
+  if ./guest 'sudo udevadm settle; nvidia-smi --query-gpu=uuid --format=csv,noheader' </dev/null | cmp -s device-uuids -; then
+    ./guest 'sudo loginctl enable-linger "$(id -un)"; sudo mkdir -p /srv/gpu-weights; sudo mount -t squashfs -o ro /dev/disk/by-id/virtio-FLASHNEXT /srv/gpu-weights' </dev/null
+    ./guest 'CUDA_DEVICE_ORDER=PCI_BUS_ID bash -s' < all-pairs > peer-check.log
+    [[ $(grep -c '^PASS ' peer-check.log) == 6 ]]
+    exit 0
+  fi
+  [[ $attempt == 1 ]]
+  ./guest 'sudo poweroff' </dev/null || true
+  for i in {1..60}; do [[ ! -e qemu.pid ]] && break; sleep 1; done
+  [[ ! -e qemu.pid ]]
+  sleep 5
+  ./launch gpu "$guest_disk"
+done

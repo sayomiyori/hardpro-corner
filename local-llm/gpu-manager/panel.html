@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<title>Профили GPU</title>
+<h1>Профили GPU</h1>
+<label>Контекст Flash Next
+  <select id="flash-context">
+    <optgroup label="Тензорный режим · NCCL и PCIe P2P">
+      <option value="16K-NCCL">16K · NCCL + P2P</option>
+      <option value="64K-NCCL">64K · NCCL + P2P</option>
+      <option value="128K-NCCL">128K · NCCL + P2P</option>
+    </optgroup>
+    <optgroup label="Профили хоста">
+      <option>16K</option><option>64K</option><option>128K</option>
+    </optgroup>
+  </select>
+</label>
+<button id="quick-qwen" type="button">Запустить Flash Next</button>
+<button id="quick-work" type="button">Вернуть 14B, 27B и ComfyUI</button>
+<button id="quick-video" type="button">Освободить три GPU</button>
+<p id="profile-progress" role="status"></p>
+<script type="module" src="profile-ui.js"></script>
+</html>

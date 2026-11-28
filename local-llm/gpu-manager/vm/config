@@ -1,0 +1,31 @@
+# Sourced by the host scripts after changing to the private VM working directory.
+if [[ -f owns-devices ]]; then
+  source ./active-vm.conf
+  config_values=$(cat active-devices)
+else
+  source "$HOME/.config/gpu-manager/vm.conf"
+  config_values=$(python3 - <<'PY'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path.home() / ".local/share/gpu-manager"))
+from settings import recipes, settings
+import re
+cfg = settings()
+slots = cfg["pci_slots"]
+if len(slots) != 3 or len(set(s.lower() for s in slots)) != 3 or not all(
+    re.fullmatch(r"[0-9a-fA-F]{2}:00[.]0", s) for s in slots
+):
+    sys.exit("Expected three different PCI buses in domain 0000")
+print(" ".join(s[:2].lower() for s in slots))
+print(" ".join(str(p) for _, p, _ in recipes(cfg).values()))
+PY
+)
+fi
+mapfile -t rows <<< "$config_values"
+read -ra buses <<< "${rows[0]}"
+read -ra ports <<< "${rows[1]}"
+[[ "$ssh_port" =~ ^[0-9]+$ && $ssh_port -gt 1023 && $ssh_port -lt 65536 ]]
+for port in "${ports[@]}"; do [[ $port != "$ssh_port" ]]; done
+for bus in "${pm_buses[@]}"; do
+  [[ " ${buses[*]} " == *" $bus "* && "$bus" =~ ^[a-f0-9]{2}$ ]]
+done
