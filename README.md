@@ -37,24 +37,18 @@ python -m unittest discover -s manager-demo -p test_archive_catalog.py -v
 
 На стенде HARD-PRO три RTX 3090 по 24 ГиБ. В обычном режиме у каждой своя задача. Для замеров Flash Next все три карты выделяли одной модели. [Конфигурация стенда](STATUS.md#проверка-28-ноября)
 
-```mermaid
-flowchart TB
-    server["HARD-PRO · Ubuntu Server"]
-    server --- manager["GPU 0 · Менеджер 1С<br/>Qwen3-14B-AWQ"]
-    server --- chat["GPU 1 · Чат и код<br/>Qwen 27B"]
-    server --- studio["GPU 2 · 3D-фабрика<br/>Hunyuan3D 2.1"]
-    classDef host fill:#972d39,stroke:#972d39,color:#ffffff;
-    classDef gpu fill:#26313e,stroke:#637487,color:#ffffff;
-    class server host;
-    class manager,chat,studio gpu;
-```
+- **GPU 0** — менеджер 1С, Qwen3-14B-AWQ.
+- **GPU 1** — чат и код, Qwen 27B.
+- **GPU 2** — генерация 3D, Hunyuan3D 2.1.
 
-| Задача | Что получилось на стенде |
-| --- | --- |
-| **Qwen3.8 Flash Next на трёх GPU** | На коротком одиночном запросе перенос экспертов MoE из ОЗУ на GPU поднял медиану генерации с **46,50 до 72,03 токена/с**. По три прогона после прогрева. Отдельно испытали окна 16K, 64K и 128K. [Параметры llama.cpp и результаты](docs/three-3090-flash-next.md) |
-| **Модель 27B для кода на одной RTX 3090** | С MTP скорость выросла с 38,5 до **70,2 токена/с** на коротком запросе и с 28,5 до **52,3** при входе в 62 тыс. токенов. [Сравнение режимов MTP](docs/llm-speed-27b.md) · [Тест на 102 тыс. токенов](docs/long-context-27b.md) |
-| **Qwen3-14B-AWQ для менеджера** | Обе модели, 14B и 9B, прошли **17 из 17** архивных реплик. Для менеджера выбрали 14B после отдельной проверки ответов о неизвестном остатке. [Сравнение моделей](docs/catalog-assistant.md) · [Расход видеопамяти в vLLM](docs/tuning-manager-14b.md) |
-| **Видео из фотографии** | Wan 2.2 TI2V-5B собрала ролик 1280 × 704 за **116,2 с** на одной карте — 49 кадров, 20 шагов. В отчёте есть и замеры FLUX.2 Klein 4B и Z-Image Turbo. [Настройки генерации медиа](docs/local-media.md) |
+| Модель | Результат | Отчёт |
+| --- | --- | --- |
+| Flash Next (3 GPU) | 46,5 → 72,0 ток/с | [Скорость](docs/three-3090-flash-next.md) |
+| Qwen 27B | 38,5 → 70,2 ток/с | [MTP](docs/llm-speed-27b.md) |
+| Qwen 14B и 9B | 17 из 17 ответов у обеих | [Каталог](docs/catalog-assistant.md) |
+| Wan 2.2 | 49 кадров за 116,2 с | [Видео](docs/local-media.md) |
+
+Скорость генерации сравнивали на коротком запросе. Отдельно измерили [скорость 27B на длинном входе](docs/long-context-27b.md) и [расход видеопамяти у 14B](docs/tuning-manager-14b.md).
 
 ## Руководства по компонентам
 
