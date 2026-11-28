@@ -15,6 +15,9 @@
 /local-llm/context/*
 !/local-llm/context/30-long-context.conf
 !/local-llm/context/qwen38-long-context.ini
+!/local-llm/context/bench_flash_next.py
+!/local-llm/context/flash-next-3gpu.json
+!/local-llm/context/hardpro-flash-next-mtp.service
 !/local-llm/media/
 /local-llm/media/*
 !/local-llm/media/openwebui_media.py

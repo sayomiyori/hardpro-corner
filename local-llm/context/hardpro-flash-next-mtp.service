@@ -1,0 +1,20 @@
+[Unit]
+Description=Qwen3.8 Flash Next with MTP on three dedicated RTX 3090s
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=%h/.config/hardpro/flash-next-mtp.env
+Environment=CUDA_DEVICE_ORDER=PCI_BUS_ID
+Environment=CUDA_VISIBLE_DEVICES=0,1,2
+ExecStartPre=/usr/bin/python3 -c "import subprocess,sys; used=list(map(int,subprocess.check_output(['nvidia-smi','--query-gpu=memory.used','--format=csv,noheader,nounits']).split())); sys.exit(0 if len(used)==3 and max(used)<600 else 'Free all three GPUs before starting Flash Next')"
+ExecStart=/usr/bin/env ${FLASH_NEXT_SERVER} --model ${FLASH_NEXT_MODEL} --host 127.0.0.1 --port 18195 \
+    --alias Qwen3.8-Flash-Next-MTP --ctx-size ${FLASH_NEXT_CONTEXT} --parallel 1 \
+    --gpu-layers all --split-mode layer --tensor-split 1,1,1 --fit off --flash-attn on \
+    --cache-type-k q8_0 --cache-type-v q8_0 --batch-size 2048 --ubatch-size 512 \
+    --threads 16 --threads-batch 32 --override-tensor ${FLASH_NEXT_PLACEMENT} \
+    -md ${FLASH_NEXT_DRAFT} --spec-type draft-mtp --spec-draft-n-max 2 \
+    -devd CUDA2 -ctkd q8_0 -ctvd q8_0 --offline --no-webui
+Restart=no
+TimeoutStopSec=30
+NoNewPrivileges=true
