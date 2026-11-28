@@ -15,6 +15,12 @@
 /local-llm/context/*
 !/local-llm/context/30-long-context.conf
 !/local-llm/context/qwen38-long-context.ini
+!/local-llm/media/
+/local-llm/media/*
+!/local-llm/media/openwebui_media.py
+!/local-llm/media/40-media.conf
+!/local-llm/media/hardpro-media-vision.service
+!/local-llm/media/webui.env.example
 
 # LAN-обвязка: исходники доски, агента, шлюза и trace-прокси
 !/lan-hub/

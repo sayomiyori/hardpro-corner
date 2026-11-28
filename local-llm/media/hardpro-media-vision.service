@@ -1,0 +1,18 @@
+[Unit]
+Description=HARD-PRO local vision for Open WebUI
+After=network.target
+ConditionPathExists=/srv/models/weights/hardpro-media/mmproj-qwen3.8-27b-f16.gguf
+
+[Service]
+Type=simple
+Environment=CUDA_VISIBLE_DEVICES=
+Environment=TMPDIR=%h/.local/share/hardpro/media
+WorkingDirectory=%h/.local/share/hardpro/media
+ExecStart=/srv/models/hard-pro-content/coding/runtime/llama serve --host 127.0.0.1 --port 8083 --alias hardpro-media-vision --model /srv/models/weights/coding/Qwen3.8-27B-UD-Q5_K_M.gguf --mmproj /srv/models/weights/hardpro-media/mmproj-qwen3.8-27b-f16.gguf --no-mmproj-offload --n-gpu-layers 0 --device none --ctx-size 262144 --parallel 1 --cache-type-k q8_0 --cache-type-v q8_0 --flash-attn on --threads 16 --threads-batch 16 --image-max-tokens 384 --reasoning off --sleep-idle-seconds 300 --no-webui --offline
+Restart=on-failure
+RestartSec=5
+Nice=10
+NoNewPrivileges=true
+
+[Install]
+WantedBy=default.target
