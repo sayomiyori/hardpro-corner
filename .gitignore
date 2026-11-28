@@ -11,6 +11,10 @@
 /local-llm/*
 !/local-llm/hp-status
 !/local-llm/README.md
+!/local-llm/context/
+/local-llm/context/*
+!/local-llm/context/30-long-context.conf
+!/local-llm/context/qwen38-long-context.ini
 
 # LAN-обвязка: исходники доски, агента, шлюза и trace-прокси
 !/lan-hub/
